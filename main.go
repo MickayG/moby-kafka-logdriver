@@ -6,6 +6,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/go-plugins-helpers/sdk"
+	"strings"
 )
 
 var logLevels = map[string]logrus.Level{
@@ -27,9 +28,24 @@ func main() {
 		os.Exit(1)
 	}
 
+	addrList := os.Getenv("KAFKA_BROKER_ADDR")
+	if addrList == "" {
+		fmt.Fprintln(os.Stderr, "Missing environment var KAFKA_BROKER_ADDR")
+		os.Exit(1)
+	}
+
+	addrs := strings.Split(addrList, ",")
+
+	client,err := CreateClient(addrs)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "unable to connect to kafka", err)
+	}
+
 	h := sdk.NewHandler(`{"Implements": ["LoggingDriver"]}`)
-	handlers(&h, newDriver())
-	if err := h.ServeUnix("jsonfile", 0); err != nil {
+	handlers(&h, newDriver(&client))
+	if err := h.ServeUnix("kafka-logdriver", 0); err != nil {
 		panic(err)
 	}
+
+	client.Close()
 }

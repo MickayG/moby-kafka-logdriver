@@ -18,6 +18,9 @@ import (
 	protoio "github.com/gogo/protobuf/io"
 	"github.com/pkg/errors"
 	"github.com/tonistiigi/fifo"
+
+	"github.com/Shopify/sarama"
+
 )
 
 type driver struct {
@@ -25,18 +28,21 @@ type driver struct {
 	logs   map[string]*logPair
 	idx    map[string]*logPair
 	logger logger.Logger
+	client *sarama.Client
 }
 
 type logPair struct {
 	l      logger.Logger
 	stream io.ReadCloser
 	info   logger.Info
+	producer sarama.AsyncProducer
 }
 
-func newDriver() *driver {
+func newDriver(client *sarama.Client) *driver {
 	return &driver{
 		logs: make(map[string]*logPair),
 		idx:  make(map[string]*logPair),
+		client: client,
 	}
 }
 
@@ -66,12 +72,21 @@ func (d *driver) StartLogging(file string, logCtx logger.Info) error {
 	}
 
 	d.mu.Lock()
-	lf := &logPair{l, f, logCtx}
+
+
+	producer, err := CreateProducer(d.client)
+	if err != nil {
+		return errors.Wrapf(err,"unable to create kafka consumer")
+	}
+
+	lf := &logPair{l, f, logCtx, producer}
 	d.logs[file] = lf
 	d.idx[logCtx.ContainerID] = lf
+
 	d.mu.Unlock()
 
-	go consumeLog(lf)
+	go ConsumeLog(lf)
+
 	return nil
 }
 
@@ -82,16 +97,24 @@ func (d *driver) StopLogging(file string) error {
 	if ok {
 		lf.stream.Close()
 		delete(d.logs, file)
+
+		lf.producer.Close()
 	}
 	d.mu.Unlock()
 	return nil
 }
 
-func consumeLog(lf *logPair) {
+func ConsumeLog(lf *logPair) {
 	dec := protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
 	var buf logdriver.LogEntry
 	for {
+		// Check if there are any Kafka errors thus far
+		select {
+			case kafkaErr := <- lf.producer.Errors():
+				logrus.Error("error recieved from Kafka", kafkaErr)
+		}
+
 		if err := dec.ReadMsg(&buf); err != nil {
 			if err == io.EOF {
 				logrus.WithField("id", lf.info.ContainerID).WithError(err).Debug("shutting down log logger")
@@ -100,15 +123,17 @@ func consumeLog(lf *logPair) {
 			}
 			dec = protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
 		}
+
+
 		var msg logger.Message
 		msg.Line = buf.Line
 		msg.Source = buf.Source
 		msg.Partial = buf.Partial
 		msg.Timestamp = time.Unix(0, buf.TimeNano)
 
-		if err := lf.l.Log(&msg); err != nil {
-			logrus.WithField("id", lf.info.ContainerID).WithError(err).WithField("message", msg).Error("error writing log message")
-			continue
+		err := WriteMessage(msg, lf.info.ContainerID, lf.producer)
+		if err != nil {
+			logrus.WithField("id", lf.info.ContainerID).WithField("msg", msg).Error("Unable to write message to kafka", err)
 		}
 
 		buf.Reset()

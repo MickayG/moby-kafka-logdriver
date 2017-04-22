@@ -1,18 +1,28 @@
 {
-	"description": "jsonfilelog as plugin",
+	"description": "Consumes log message from containers and writes them to Kafka",
 	"documentation": "-",
-	"entrypoint": ["/usr/bin/docker-log-driver"],
+	"entrypoint": ["/usr/bin/kafka-logdriver"],
 	"interface": {
 		"types": ["docker.logdriver/1.0"],
-		"socket": "jsonfile.sock"
+		"socket": "kafka-logdriver.sock"
 	},
 	"env": [
-		{
-			"name": "LOG_LEVEL",
-			"description": "Set log level to output for plugin logs",
-			"value": "info",
-			"settable": ["value"]
-		}
+      {
+        "name": "LOG_LEVEL",
+        "description": "Set log level to output for plugin logs",
+        "value": "info",
+        "settable": [
+          "value"
+        ]
+      },
+      {
+        "name": "KAFKA_BROKER_ADDR",
+        "description": "Comma delimited list of broker addresses. E.g. broker1:9092,broker2:9092",
+        "value": "",
+        "settable": [
+          "value"
+        ]
+      }
 	]
 }
 
