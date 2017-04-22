@@ -3,4 +3,5 @@ FROM  golang:1.8
 COPY . /go/src/github.com/MickayG/moby-kafka-logdriver
 
 RUN cd /go/src/github.com/MickayG/moby-kafka-logdriver && go get
+RUN cd /go/src/github.com/MickayG/moby-kafka-logdriver && go test
 RUN cd /go/src/github.com/MickayG/moby-kafka-logdriver && go build --ldflags '-extldflags "-static"' -o /usr/bin/kafka-logdriver

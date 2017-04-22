@@ -4,14 +4,11 @@ import (
 	"testing"
 	"github.com/Shopify/sarama/mocks"
 	"github.com/Shopify/sarama"
-	"github.com/docker/docker/daemon/logger"
 	"time"
 	"encoding/json"
 
 	"github.com/stretchr/testify/assert"
 )
-
-
 
 func TestWriteMessage(t *testing.T) {
 	config  := sarama.NewConfig()

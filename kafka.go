@@ -4,7 +4,6 @@ import (
 	"github.com/Shopify/sarama"
 	"encoding/json"
 	"github.com/Sirupsen/logrus"
-	"time"
 )
 
 // Create a Sarama Kafka client with the broker list
