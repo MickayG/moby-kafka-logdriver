@@ -37,9 +37,11 @@ func TestWriteMessage(t *testing.T) {
 	writtenMsg := <-producer.Successes()
 	msgContentBytes, err := writtenMsg.Value.Encode()
 	if err != nil {
-		t.Fail()
+		t.Error(err)
+		t.FailNow()
 	}
 
+	print("Recieved message: "+ string(msgContentBytes))
 
 	var outputJson map[string]interface{}
 	json.Unmarshal(msgContentBytes, outputJson)
