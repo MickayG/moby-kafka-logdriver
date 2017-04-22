@@ -15,6 +15,7 @@ import (
 
 func TestWriteMessage(t *testing.T) {
 	config  := sarama.NewConfig()
+	config.Producer.Return.Successes = true
 	producer := mocks.NewAsyncProducer(t, config)
 
 
