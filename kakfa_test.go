@@ -43,9 +43,9 @@ func TestWriteMessage(t *testing.T) {
 
 	print("Recieved message: "+ string(msgContentBytes))
 
-	var outputJson map[string]interface{}
-	json.Unmarshal(msgContentBytes, outputJson)
+	var outputJson logger.Message
+	json.Unmarshal(msgContentBytes, &outputJson)
 
-	assert.Equal(t, expectedTime.String(), outputJson["Timestamp"])
-	assert.Equal(t, expectedLine, outputJson["Line"])
+	assert.Equal(t, expectedTime.String(), outputJson.Timestamp)
+	assert.Equal(t, expectedLine, outputJson.Line)
 }
