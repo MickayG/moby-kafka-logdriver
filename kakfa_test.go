@@ -18,21 +18,18 @@ func TestWriteMessage(t *testing.T) {
 	config.Producer.Return.Successes = true
 	producer := mocks.NewAsyncProducer(t, config)
 
-
 	expectedTime :=  time.Now()
 	expectedSource := "containerABC"
 	expectedLine := "I am a log message"
-	expectedAttributes := make(map[string]string, 0)
 
-	msg := logger.NewMessage()
+	var msg LogMessage
 	msg.Timestamp = expectedTime
 	msg.Source = expectedSource
-	msg.Line = []byte(expectedLine)
-	msg.Attrs = expectedAttributes
+	msg.Line = expectedLine
 	msg.Partial = false
 
 	producer.ExpectInputAndSucceed()
-	WriteMessage(*msg, expectedSource, producer)
+	WriteMessage(msg, expectedSource, producer)
 
 	writtenMsg := <-producer.Successes()
 	msgContentBytes, err := writtenMsg.Value.Encode()
@@ -43,9 +40,9 @@ func TestWriteMessage(t *testing.T) {
 
 	print("Recieved message: "+ string(msgContentBytes))
 
-	var outputJson logger.Message
+	var outputJson LogMessage
 	json.Unmarshal(msgContentBytes, &outputJson)
 
-	assert.Equal(t, expectedTime.String(), outputJson.Timestamp)
+	assert.Equal(t, expectedTime, outputJson.Timestamp)
 	assert.Equal(t, expectedLine, outputJson.Line)
 }

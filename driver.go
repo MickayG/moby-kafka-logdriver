@@ -21,7 +21,23 @@ import (
 
 	"github.com/Shopify/sarama"
 
+	"github.com/docker/docker/api/types/backend"
 )
+
+// An mapped version of logger.Message where Line is a String, not a byte array
+type LogMessage struct {
+	Line      string
+	Source    string
+	Timestamp time.Time
+	Attrs     backend.LogAttributes
+	Partial   bool
+
+	// Err is an error associated with a message. Completeness of a message
+	// with Err is not expected, tho it may be partially complete (fields may
+	// be missing, gibberish, or nil)
+	Err error
+
+}
 
 type driver struct {
 	mu     sync.Mutex
@@ -125,8 +141,8 @@ func ConsumeLog(lf *logPair) {
 		}
 
 
-		var msg logger.Message
-		msg.Line = buf.Line
+		var msg LogMessage
+		msg.Line = string(buf.Line)
 		msg.Source = buf.Source
 		msg.Partial = buf.Partial
 		msg.Timestamp = time.Unix(0, buf.TimeNano)
