@@ -6,6 +6,9 @@
 		"types": ["docker.logdriver/1.0"],
 		"socket": "kafka-logdriver.sock"
 	},
+    "network": {
+      "type": "host"
+    },
 	"env": [
       {
         "name": "LOG_LEVEL",

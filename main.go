@@ -34,7 +34,7 @@ func main() {
 
 	client, err := CreateClient(addrs)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "unable to connect to kafka", err)
+		fmt.Fprintln(os.Stderr, "unable to connect to kafka:", err)
 	}
 
 	h := sdk.NewHandler(`{"Implements": ["LoggingDriver"]}`)
