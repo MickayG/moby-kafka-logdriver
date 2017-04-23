@@ -86,11 +86,11 @@ func TestWriteMultipleMessagesToDifferentTopics(t *testing.T) {
 
 	assert.NotNil(t, out2)
 	assertLineMatch(t,"b", out2)
-	assertTopic(t, "topic2", out1)
+	assertTopic(t, "topic2", out2)
 
 	assert.NotNil(t, out3)
 	assertLineMatch(t,"c", out3)
-	assertTopic(t, "topic3", out1)
+	assertTopic(t, "topic3", out3)
 }
 
 func assertTopic(t *testing.T, expectedTopic string, message *sarama.ProducerMessage) {
@@ -105,7 +105,12 @@ func assertLineMatch(t *testing.T, expectedLine string, message *sarama.Producer
 	}
 
 	var outputJson LogMessage
-	json.Unmarshal(msgContentBytes, outputJson)
+	jErr := json.Unmarshal(msgContentBytes, &outputJson)
+	if jErr != nil {
+		t.Error(jErr)
+		t.FailNow()
+	}
+
 	assert.Equal(t, expectedLine, outputJson.Line)
 }
 
