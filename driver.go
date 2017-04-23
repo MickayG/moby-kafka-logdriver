@@ -14,7 +14,6 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
-	"github.com/docker/docker/daemon/logger/jsonfilelog"
 	protoio "github.com/gogo/protobuf/io"
 	"github.com/pkg/errors"
 	"github.com/tonistiigi/fifo"
@@ -49,7 +48,6 @@ type driver struct {
 }
 
 type logPair struct {
-	l      logger.Logger
 	stream io.ReadCloser
 	info   logger.Info
 	producer sarama.AsyncProducer
@@ -78,10 +76,6 @@ func (d *driver) StartLogging(file string, logCtx logger.Info) error {
 	if err := os.MkdirAll(filepath.Dir(logCtx.LogPath), 0755); err != nil {
 		return errors.Wrap(err, "error setting up logger dir")
 	}
-	l, err := jsonfilelog.New(logCtx)
-	if err != nil {
-		return errors.Wrap(err, "error creating jsonfile logger")
-	}
 
 	logrus.WithField("id", logCtx.ContainerID).WithField("file", file).WithField("logpath", logCtx.LogPath).Debugf("Start logging")
 	f, err := fifo.OpenFifo(context.Background(), file, syscall.O_RDONLY, 0700)
@@ -91,13 +85,12 @@ func (d *driver) StartLogging(file string, logCtx logger.Info) error {
 
 	d.mu.Lock()
 
-
 	producer, err := CreateProducer(d.client)
 	if err != nil {
 		return errors.Wrapf(err,"unable to create kafka consumer")
 	}
 
-	lf := &logPair{l, f, logCtx, producer}
+	lf := &logPair{ f, logCtx, producer}
 	d.logs[file] = lf
 	d.idx[logCtx.ContainerID] = lf
 
@@ -159,52 +152,6 @@ func ConsumeLog(lf *logPair, topic string) {
 }
 
 func (d *driver) ReadLogs(info logger.Info, config logger.ReadConfig) (io.ReadCloser, error) {
-	d.mu.Lock()
-	lf, exists := d.idx[info.ContainerID]
-	d.mu.Unlock()
-	if !exists {
-		return nil, fmt.Errorf("logger does not exist for %s", info.ContainerID)
-	}
-
-	r, w := io.Pipe()
-	lr, ok := lf.l.(logger.LogReader)
-	if !ok {
-		return nil, fmt.Errorf("logger does not support reading")
-	}
-
-	go func() {
-		watcher := lr.ReadLogs(config)
-
-		enc := protoio.NewUint32DelimitedWriter(w, binary.BigEndian)
-		defer enc.Close()
-		defer watcher.Close()
-
-		var buf logdriver.LogEntry
-		for {
-			select {
-			case msg, ok := <-watcher.Msg:
-				if !ok {
-					w.Close()
-					return
-				}
-
-				buf.Line = msg.Line
-				buf.Partial = msg.Partial
-				buf.TimeNano = msg.Timestamp.UnixNano()
-				buf.Source = msg.Source
-
-				if err := enc.WriteMsg(&buf); err != nil {
-					w.CloseWithError(err)
-					return
-				}
-			case err := <-watcher.Err:
-				w.CloseWithError(err)
-				return
-			}
-
-			buf.Reset()
-		}
-	}()
-
-	return r, nil
+	//TODO
+	return nil, nil
 }
