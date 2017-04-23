@@ -90,7 +90,7 @@ func readLogsRequest(d LogDriver) func(w http.ResponseWriter, r *http.Request) {
 func capabilitiesRequest(d LogDriver) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(&CapabilitiesResponse{
-			Cap: logger.Capability{ReadLogs: false},
+			Cap: d.GetCapability(),
 		})
 	}
 }

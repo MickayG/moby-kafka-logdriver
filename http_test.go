@@ -9,21 +9,18 @@ import (
 	"net/http"
 	"encoding/json"
 	"bytes"
+	"io/ioutil"
 )
 
 func TestDriverCalledOnStartLoggingCall(t *testing.T) {
 	var driver testDriver
-
 	startLoggingRequestContent := StartLoggingRequest{File:"logs", Info:logger.Info{ContainerID:"abdud"}}
+
 	outContent, err := json.Marshal(startLoggingRequestContent)
 	if err != nil {	t.Fatal(err) }
 
-	req, err := http.NewRequest("POST", "/StartLogging", bytes.NewReader(outContent))
-	if err != nil {	t.Fatal(err) }
+	ht := executeHttpRequest(t, driver, START_LOGGING_REQUEST, startLoggingRequest(&driver), bytes.NewReader(outContent))
 
-	ht := httptest.NewRecorder()
-	handler := http.HandlerFunc(startLoggingRequest(&driver))
-	handler.ServeHTTP(ht, req)
 
 	assertCodeReceived(t, 200, ht)
 	assert.Equal(t, true, driver.startLoggingCalled)
@@ -32,27 +29,61 @@ func TestDriverCalledOnStartLoggingCall(t *testing.T) {
 
 func TestDriverCalledOnStopLoggingCall(t *testing.T) {
 	var driver testDriver
-
 	stopLoggingRequestContent := StopLoggingRequest{File: "abcd"}
 
 	outContent, err := json.Marshal(stopLoggingRequestContent)
 	if err != nil {	t.Fatal(err) }
 
-	req, err := http.NewRequest("POST", "/StopLogging", bytes.NewReader(outContent))
-	if err != nil {	t.Fatal(err) }
-
-	ht := httptest.NewRecorder()
-	handler := http.HandlerFunc(stopLoggingRequest(&driver))
-	handler.ServeHTTP(ht, req)
+	ht := executeHttpRequest(t, driver, STOP_LOGGING_REQUEST, stopLoggingRequest(&driver), bytes.NewReader(outContent))
 
 	assertCodeReceived(t, 200, ht)
 	assert.Equal(t, false, driver.startLoggingCalled)
 	assert.Equal(t, true, driver.stopLoggingCalled)
 }
 
+func TestDriverQueriedForCapabilities(t *testing.T) {
+	var driver testDriver
+
+	ht := executeHttpRequest(t, driver, LOG_CAPABILITIES_REQUEST, capabilitiesRequest(&driver), nil)
+
+	assertCodeReceived(t, 200, ht)
+	// Check that our test driver was indeed called
+	assert.Equal(t, true, driver.capabilitiesCalled)
+
+	// Test that the data was serialized correctly
+	respContent, err := ioutil.ReadAll(ht.Body)
+	if err != nil {	t.Fatal(err) }
+
+	var capability CapabilitiesResponse
+	err = json.Unmarshal(respContent, &capability)
+	if err != nil {	t.Fatal(err) }
+	assert.Equal(t, true, capability.Cap.ReadLogs)
+}
+
+func executeHttpRequest(t *testing.T, driver testDriver, uri string, fn func(w http.ResponseWriter, r *http.Request), body io.Reader) (*httptest.ResponseRecorder) {
+	req, err := http.NewRequest("POST", uri, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ht := httptest.NewRecorder()
+	handler := http.HandlerFunc(fn)
+	handler.ServeHTTP(ht, req)
+	return ht
+}
+
+
+func assertCodeReceived(t *testing.T, code int, recorder *httptest.ResponseRecorder) {
+	if status := recorder.Code; status != code {
+		t.Errorf("Wrong error code. Got %v expected %v", status, code)
+		t.Fail()
+	}
+}
+
+
 type testDriver struct {
 	startLoggingCalled bool
 	stopLoggingCalled bool
+	capabilitiesCalled bool
 }
 
 
@@ -72,9 +103,8 @@ func (d *testDriver) ReadLogs(info logger.Info, config logger.ReadConfig) (io.Re
 	return nil, nil
 }
 
-func assertCodeReceived(t *testing.T, code int, recorder *httptest.ResponseRecorder) {
-	if status := recorder.Code; status != code {
-		t.Errorf("Wrong error code. Got %v expected %v", status, code)
-		t.Fail()
-	}
+func (d *testDriver) GetCapability() logger.Capability {
+	d.capabilitiesCalled = true
+	return logger.Capability{ReadLogs: true}
 }
+

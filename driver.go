@@ -42,6 +42,7 @@ type LogDriver interface {
 	StartLogging(file string, logCtx logger.Info) error
 	StopLogging(file string) error
 	ReadLogs(info logger.Info, config logger.ReadConfig) (io.ReadCloser, error)
+	GetCapability() logger.Capability
 }
 
 type KafkaDriver struct {
@@ -121,6 +122,10 @@ func (d *KafkaDriver) StopLogging(file string) error {
 	return nil
 }
 
+func (d* KafkaDriver) GetCapability() logger.Capability {
+	return logger.Capability{ReadLogs: false}
+}
+
 func ConsumeLog(lf *logPair, topic string) {
 	dec := protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
@@ -129,9 +134,10 @@ func ConsumeLog(lf *logPair, topic string) {
 		// Check if there are any Kafka errors thus far
 		select {
 			case kafkaErr := <- lf.producer.Errors():
+				// In the event of an error, continue to attempt to write messages
 				logrus.Error("error recieved from Kafka", kafkaErr)
 			default:
-				//No errors
+				//No errors, continue
 		}
 
 		if err := dec.ReadMsg(&buf); err != nil {
