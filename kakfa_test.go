@@ -11,7 +11,7 @@ import (
 )
 
 func TestWriteSingleMessage(t *testing.T) {
-	producer := newProducer(t)
+	producer := NewProducer(t)
 
 	expectedTime := time.Now()
 	expectedSource := "containerABC"
@@ -28,7 +28,7 @@ func TestWriteSingleMessage(t *testing.T) {
 }
 
 func TestWriteMultipleMessagesToSameTopic(t *testing.T) {
-	producer := newProducer(t)
+	producer := NewProducer(t)
 
 	msg1 := newMessage(time.Now(), "1", "a")
 	msg2 := newMessage(time.Now(), "2", "b")
@@ -61,7 +61,7 @@ func TestWriteMultipleMessagesToSameTopic(t *testing.T) {
 }
 
 func TestWriteMultipleMessagesToDifferentTopics(t *testing.T) {
-	producer := newProducer(t)
+	producer := NewProducer(t)
 
 	msg1 := newMessage(time.Now(), "1", "a")
 	msg2 := newMessage(time.Now(), "2", "b")
@@ -123,7 +123,7 @@ func newMessage(expectedTime time.Time, expectedSource string, expectedLine stri
 	return msg
 }
 
-func newProducer(t *testing.T) *mocks.AsyncProducer {
+func NewProducer(t *testing.T) *mocks.AsyncProducer {
 	config := sarama.NewConfig()
 	config.Producer.Return.Successes = true
 	producer := mocks.NewAsyncProducer(t, config)

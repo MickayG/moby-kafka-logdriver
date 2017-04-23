@@ -124,6 +124,8 @@ func ConsumeLog(lf *logPair, topic string) {
 		select {
 			case kafkaErr := <- lf.producer.Errors():
 				logrus.Error("error recieved from Kafka", kafkaErr)
+			default:
+				//No errors
 		}
 
 		if err := dec.ReadMsg(&buf); err != nil {
@@ -134,7 +136,6 @@ func ConsumeLog(lf *logPair, topic string) {
 			}
 			dec = protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
 		}
-
 
 		var msg LogMessage
 		msg.Line = string(buf.Line)
