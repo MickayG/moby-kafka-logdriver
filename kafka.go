@@ -19,7 +19,7 @@ func CreateProducer(client *sarama.Client) (sarama.AsyncProducer, error){
 
 // Converts a log message into JSON and writes it to the producer, ready to be written to the broker
 //  Returns an error if any occurred.
-func WriteMessage(msg LogMessage, containerId string, producer sarama.AsyncProducer) error {
+func WriteMessage(topic string, msg LogMessage, containerId string, producer sarama.AsyncProducer) error {
 
 	asJson, err := json.Marshal(msg)
 	if err != nil {
@@ -27,7 +27,7 @@ func WriteMessage(msg LogMessage, containerId string, producer sarama.AsyncProdu
 		return err
 	}
 
-	producer.Input() <- &sarama.ProducerMessage{Topic: "logs", Key: sarama.StringEncoder(msg.Source), Value: sarama.StringEncoder(asJson), Timestamp: msg.Timestamp}
+	producer.Input() <- &sarama.ProducerMessage{Topic: topic, Key: sarama.StringEncoder(msg.Source), Value: sarama.StringEncoder(asJson), Timestamp: msg.Timestamp}
 
 	return nil
 }

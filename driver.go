@@ -45,6 +45,7 @@ type driver struct {
 	idx    map[string]*logPair
 	logger logger.Logger
 	client *sarama.Client
+	outputTopic string
 }
 
 type logPair struct {
@@ -54,11 +55,12 @@ type logPair struct {
 	producer sarama.AsyncProducer
 }
 
-func newDriver(client *sarama.Client) *driver {
+func newDriver(client *sarama.Client, outputTopic string) *driver {
 	return &driver{
 		logs: make(map[string]*logPair),
 		idx:  make(map[string]*logPair),
 		client: client,
+		outputTopic: outputTopic,
 	}
 }
 
@@ -101,7 +103,7 @@ func (d *driver) StartLogging(file string, logCtx logger.Info) error {
 
 	d.mu.Unlock()
 
-	go ConsumeLog(lf)
+	go ConsumeLog(lf, d.outputTopic)
 
 	return nil
 }
@@ -120,7 +122,7 @@ func (d *driver) StopLogging(file string) error {
 	return nil
 }
 
-func ConsumeLog(lf *logPair) {
+func ConsumeLog(lf *logPair, topic string) {
 	dec := protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
 	var buf logdriver.LogEntry
@@ -147,7 +149,7 @@ func ConsumeLog(lf *logPair) {
 		msg.Partial = buf.Partial
 		msg.Timestamp = time.Unix(0, buf.TimeNano)
 
-		err := WriteMessage(msg, lf.info.ContainerID, lf.producer)
+		err := WriteMessage(topic, msg, lf.info.ContainerID, lf.producer)
 		if err != nil {
 			logrus.WithField("id", lf.info.ContainerID).WithField("msg", msg).Error("Unable to write message to kafka", err)
 		}

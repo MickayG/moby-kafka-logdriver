@@ -22,6 +22,14 @@
         "settable": [
           "value"
         ]
+      },
+      {
+        "name": "LOG_TOPIC",
+        "description": "Name of the topic to write docker logs to",
+        "value": "dockerlogs",
+        "settable": [
+          "value"
+        ]
       }
 	]
 }
