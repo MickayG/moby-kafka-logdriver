@@ -6,7 +6,6 @@ import (
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"time"
 	"github.com/docker/docker/pkg/ioutils"
-	"github.com/Sirupsen/logrus"
 	protoio "github.com/gogo/protobuf/io"
 	"encoding/binary"
 	"io"
@@ -15,9 +14,7 @@ import (
 )
 
 
-func TestConsumesSingleLogMessages(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
+func TestConsumesSingleLogMessagesFromDocker(t *testing.T) {
 	producer := NewProducer(t)
 	defer producer.Close()
 
@@ -35,9 +32,7 @@ func TestConsumesSingleLogMessages(t *testing.T) {
 }
 
 
-func TestConsumesMultipleLogMessages(t *testing.T) {
-	logrus.SetLevel(logrus.DebugLevel)
-
+func TestConsumesMultipleLogMessagesFromDocker(t *testing.T) {
 	producer := NewProducer(t)
 	defer producer.Close()
 

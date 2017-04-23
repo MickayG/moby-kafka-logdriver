@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 
@@ -30,23 +29,32 @@ type ReadLogsRequest struct {
 	Config logger.ReadConfig
 }
 
-func handlers(h *sdk.Handler, d *driver) {
-	h.HandleFunc("/LogDriver.StartLogging", func(w http.ResponseWriter, r *http.Request) {
+
+const START_LOGGING_REQUEST string = "/LogDriver.StartLogging"
+const STOP_LOGGING_REQUEST string = "/LogDriver.StopLogging"
+const LOG_CAPABILITIES_REQUEST string = "/LogDriver.Capabilities"
+const READ_LOGS_REQUEST string = "/LogDriver.ReadLogs"
+
+func startLoggingRequest(d LogDriver) func(w http.ResponseWriter, r *http.Request) {
+
+	return func(w http.ResponseWriter, r *http.Request) {
 		var req StartLoggingRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		if req.Info.ContainerID == "" {
-			respond(errors.New("must provide container id in log context"), w)
+			http.Error(w, "must provide container id in log context", http.StatusBadRequest)
 			return
 		}
 
 		err := d.StartLogging(req.File, req.Info)
 		respond(err, w)
-	})
+	}
+}
 
-	h.HandleFunc("/LogDriver.StopLogging", func(w http.ResponseWriter, r *http.Request) {
+func stopLoggingRequest(d LogDriver) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		var req StopLoggingRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -54,15 +62,11 @@ func handlers(h *sdk.Handler, d *driver) {
 		}
 		err := d.StopLogging(req.File)
 		respond(err, w)
-	})
+	}
+}
 
-	h.HandleFunc("/LogDriver.Capabilities", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(&CapabilitiesResponse{
-			Cap: logger.Capability{ReadLogs: false},
-		})
-	})
-
-	h.HandleFunc("/LogDriver.ReadLogs", func(w http.ResponseWriter, r *http.Request) {
+func readLogsRequest(d LogDriver) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		var req ReadLogsRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -79,8 +83,25 @@ func handlers(h *sdk.Handler, d *driver) {
 		w.Header().Set("Content-Type", "application/x-json-stream")
 		wf := ioutils.NewWriteFlusher(w)
 		io.Copy(wf, stream)
-	})
+	}
 }
+
+
+func capabilitiesRequest(d LogDriver) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(&CapabilitiesResponse{
+			Cap: logger.Capability{ReadLogs: false},
+		})
+	}
+}
+
+func setupDockerHandlers(h *sdk.Handler, d LogDriver) {
+	h.HandleFunc(START_LOGGING_REQUEST, startLoggingRequest(d))
+	h.HandleFunc(STOP_LOGGING_REQUEST, stopLoggingRequest(d))
+	h.HandleFunc(LOG_CAPABILITIES_REQUEST, capabilitiesRequest(d))
+	h.HandleFunc(READ_LOGS_REQUEST, readLogsRequest(d))
+}
+
 
 type response struct {
 	Err string

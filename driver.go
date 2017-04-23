@@ -38,7 +38,13 @@ type LogMessage struct {
 
 }
 
-type driver struct {
+type LogDriver interface {
+	StartLogging(file string, logCtx logger.Info) error
+	StopLogging(file string) error
+	ReadLogs(info logger.Info, config logger.ReadConfig) (io.ReadCloser, error)
+}
+
+type KafkaDriver struct {
 	mu     sync.Mutex
 	logs   map[string]*logPair
 	idx    map[string]*logPair
@@ -53,8 +59,8 @@ type logPair struct {
 	producer sarama.AsyncProducer
 }
 
-func newDriver(client *sarama.Client, outputTopic string) *driver {
-	return &driver{
+func newDriver(client *sarama.Client, outputTopic string) *KafkaDriver {
+	return &KafkaDriver{
 		logs: make(map[string]*logPair),
 		idx:  make(map[string]*logPair),
 		client: client,
@@ -62,7 +68,7 @@ func newDriver(client *sarama.Client, outputTopic string) *driver {
 	}
 }
 
-func (d *driver) StartLogging(file string, logCtx logger.Info) error {
+func (d *KafkaDriver) StartLogging(file string, logCtx logger.Info) error {
 	d.mu.Lock()
 	if _, exists := d.logs[file]; exists {
 		d.mu.Unlock()
@@ -101,7 +107,7 @@ func (d *driver) StartLogging(file string, logCtx logger.Info) error {
 	return nil
 }
 
-func (d *driver) StopLogging(file string) error {
+func (d *KafkaDriver) StopLogging(file string) error {
 	logrus.WithField("file", file).Debugf("Stop logging")
 	d.mu.Lock()
 	lf, ok := d.logs[file]
@@ -152,7 +158,7 @@ func ConsumeLog(lf *logPair, topic string) {
 	}
 }
 
-func (d *driver) ReadLogs(info logger.Info, config logger.ReadConfig) (io.ReadCloser, error) {
+func (d *KafkaDriver) ReadLogs(info logger.Info, config logger.ReadConfig) (io.ReadCloser, error) {
 	//TODO
 	return nil, nil
 }

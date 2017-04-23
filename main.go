@@ -38,7 +38,7 @@ func main() {
 	}
 
 	h := sdk.NewHandler(`{"Implements": ["LoggingDriver"]}`)
-	handlers(&h, newDriver(&client, outputTopic))
+	setupDockerHandlers(&h, newDriver(&client, outputTopic))
 	if err := h.ServeUnix("kafka-logdriver", 0); err != nil {
 		panic(err)
 	}
