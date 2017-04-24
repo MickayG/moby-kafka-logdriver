@@ -11,6 +11,7 @@ import (
 	"io"
 	"github.com/Shopify/sarama/mocks"
 	"github.com/docker/docker/daemon/logger"
+	"github.com/stretchr/testify/assert"
 )
 
 
@@ -57,14 +58,35 @@ func TestConsumesMultipleLogMessagesFromDocker(t *testing.T) {
 	assertLineMatch(t, "delta", <-producer.Successes())
 }
 
+func TestJsonIncludesContainerInformation(t *testing.T) {
+	expectedContainerId := "containerid1"
+	expectedContainerName := "containername1"
 
+	producer := NewProducer(t)
+	defer producer.Close()
 
+	logMsg := newLogEntry("alpha")
+
+	stream := createBufferForLogMessages([]logdriver.LogEntry{logMsg})
+
+	lf := createLogPair(producer, stream)
+	lf.info.ContainerID = expectedContainerId
+	lf.info.ContainerName = expectedContainerName
+
+	producer.ExpectInputAndSucceed()
+	ConsumeLog(&lf, "topic", KEY_BY_TIMESTAMP)
+
+	recvMsg := <-producer.Successes()
+	outMsg := unmarshallMessage(recvMsg, t)
+	assert.Equal(t, expectedContainerId, outMsg.ContainerId)
+	assert.Equal(t, expectedContainerName, outMsg.ContainerName)
+}
 
 func createLogPair(producer *mocks.AsyncProducer, stream io.ReadCloser) logPair {
 	var lf logPair
 	lf.producer = producer
 	lf.stream = stream
-	lf.info = logger.Info{}
+	lf.info = logger.Info{ContainerName: "mycontainer", ContainerID: "abcdefg"}
 	return lf
 }
 

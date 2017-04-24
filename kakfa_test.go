@@ -135,21 +135,26 @@ func assertTopic(t *testing.T, expectedTopic string, message *sarama.ProducerMes
 }
 
 func assertLineMatch(t *testing.T, expectedLine string, message *sarama.ProducerMessage) {
+	outputJson := unmarshallMessage(message, t)
+	assert.Equal(t, expectedLine, outputJson.Line)
+}
+
+
+func unmarshallMessage(message *sarama.ProducerMessage, t *testing.T) (LogMessage) {
 	msgContentBytes, err := message.Value.Encode()
 	if err != nil {
 		t.Error(err)
 		t.FailNow()
 	}
-
 	var outputJson LogMessage
 	jErr := json.Unmarshal(msgContentBytes, &outputJson)
 	if jErr != nil {
 		t.Error(jErr)
 		t.FailNow()
 	}
-
-	assert.Equal(t, expectedLine, outputJson.Line)
+	return outputJson
 }
+
 
 func newMessage(expectedTime time.Time, expectedSource string, expectedLine string) (LogMessage) {
 	var msg LogMessage

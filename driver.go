@@ -19,8 +19,6 @@ import (
 	"github.com/tonistiigi/fifo"
 
 	"github.com/Shopify/sarama"
-
-	"github.com/docker/docker/api/types/backend"
 )
 
 // An mapped version of logger.Message where Line is a String, not a byte array
@@ -28,8 +26,9 @@ type LogMessage struct {
 	Line      string
 	Source    string
 	Timestamp time.Time
-	Attrs     backend.LogAttributes
 	Partial   bool
+	ContainerName string
+	ContainerId string
 
 	// Err is an error associated with a message. Completeness of a message
 	// with Err is not expected, tho it may be partially complete (fields may
@@ -157,6 +156,8 @@ func ConsumeLog(lf *logPair, topic string, keyStrategy KeyStrategy) {
 		msg.Source = buf.Source
 		msg.Partial = buf.Partial
 		msg.Timestamp = time.Unix(0, buf.TimeNano)
+		msg.ContainerId = lf.info.ContainerID
+		msg.ContainerName = lf.info.ContainerName
 
 		err := WriteMessage(topic, msg, lf.info.ContainerID, keyStrategy, lf.producer)
 		if err != nil {
