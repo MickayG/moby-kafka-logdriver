@@ -1,5 +1,7 @@
-NAME: mickyg/kafka-logdriver
-TAG: 0.1
+.DEFAULT_GOAL := test
+
+NAME=mickyg/kafka-logdriver
+TAG=0.1
 
 clean:
 	@rm -rf kafka-logdriver.tar.gz
@@ -23,7 +25,3 @@ enable: install
 
 push: enable
 	@docker plugin push ${NAME}:${TAG}
-
-
-default: test
-
