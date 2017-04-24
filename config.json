@@ -33,6 +33,22 @@
         "settable": [
           "value"
         ]
+      },
+      {
+        "name": "KEY_STRATEGY",
+        "description": "Method in which Kafka methods should be keyed",
+        "value": "key_by_timestamp",
+        "settable": [
+          "value"
+        ]
+      },
+      {
+        "name": "PARTITION_STRATEGY",
+        "description": "Kafka partitioner type",
+        "value": "round_robin",
+        "settable": [
+          "value"
+        ]
       }
 	]
 }

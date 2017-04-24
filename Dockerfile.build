@@ -1,8 +1,4 @@
 FROM  golang:1.8
 
 COPY . /go/src/github.com/MickayG/moby-kafka-logdriver
-
-# For some reason 'go get' does not get the below package
-RUN go get "github.com/stretchr/testify/assert"
-
-RUN cd /go/src/github.com/MickayG/moby-kafka-logdriver && go get && go build --ldflags '-extldflags "-static"' -o /usr/bin/kafka-logdriver
+RUN cd /go/src/github.com/MickayG/moby-kafka-logdriver && go get -t && go build --ldflags '-extldflags "-static"' -o /usr/bin/kafka-logdriver
