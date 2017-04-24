@@ -32,13 +32,26 @@ func main() {
 		outputTopic = "dockerlogs"
 	}
 
+
+	keyStrategyVar := os.Getenv("KEY_STRATEGY")
+	if keyStrategyVar == "" {
+		keyStrategyVar = "key_by_timestamp"
+	}
+
+	keyStrat, err := getKeyStrategyFromString(keyStrategyVar)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "unknown key strategy" , err)
+		os.Exit(1)
+	}
+
 	client, err := CreateClient(addrs)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "unable to connect to kafka:", err)
+		os.Exit(1)
 	}
 
 	h := sdk.NewHandler(`{"Implements": ["LoggingDriver"]}`)
-	setupDockerHandlers(&h, newDriver(&client, outputTopic))
+	setupDockerHandlers(&h, newDriver(&client, outputTopic, keyStrat))
 	if err := h.ServeUnix("kafka-logdriver", 0); err != nil {
 		panic(err)
 	}

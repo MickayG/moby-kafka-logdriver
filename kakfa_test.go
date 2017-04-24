@@ -20,7 +20,7 @@ func TestWriteSingleMessage(t *testing.T) {
 	msg := newMessage(expectedTime, expectedSource, expectedLine)
 
 	producer.ExpectInputAndSucceed()
-	WriteMessage("topic1", msg, expectedSource, producer)
+	WriteMessage("topic1", msg, expectedSource, KEY_BY_TIMESTAMP, producer)
 
 	writtenMsg := <-producer.Successes()
 
@@ -39,9 +39,9 @@ func TestWriteMultipleMessagesToSameTopic(t *testing.T) {
 	producer.ExpectInputAndSucceed()
 	producer.ExpectInputAndSucceed()
 
-	WriteMessage("topic1", msg1, msg1.Source, producer)
-	WriteMessage("topic1", msg2, msg2.Source, producer)
-	WriteMessage("topic1", msg3, msg3.Source, producer)
+	WriteMessage("topic1", msg1, msg1.Source, KEY_BY_TIMESTAMP, producer)
+	WriteMessage("topic1", msg2, msg2.Source, KEY_BY_TIMESTAMP, producer)
+	WriteMessage("topic1", msg3, msg3.Source, KEY_BY_TIMESTAMP, producer)
 
 	out1 := <-producer.Successes()
 	out2 := <-producer.Successes()
@@ -72,9 +72,9 @@ func TestWriteMultipleMessagesToDifferentTopics(t *testing.T) {
 	producer.ExpectInputAndSucceed()
 	producer.ExpectInputAndSucceed()
 
-	WriteMessage("topic1", msg1, msg1.Source, producer)
-	WriteMessage("topic2", msg2, msg2.Source, producer)
-	WriteMessage("topic3", msg3, msg3.Source, producer)
+	WriteMessage("topic1", msg1, msg1.Source, KEY_BY_TIMESTAMP, producer)
+	WriteMessage("topic2", msg2, msg2.Source, KEY_BY_TIMESTAMP, producer)
+	WriteMessage("topic3", msg3, msg3.Source, KEY_BY_TIMESTAMP, producer)
 
 	out1 := <-producer.Successes()
 	out2 := <-producer.Successes()
@@ -92,6 +92,43 @@ func TestWriteMultipleMessagesToDifferentTopics(t *testing.T) {
 	assertLineMatch(t,"c", out3)
 	assertTopic(t, "topic3", out3)
 }
+
+func TestKeyByTimestamp(t *testing.T) {
+	producer := NewProducer(t)
+	expectedTime := time.Now()
+	expectedTimeAsUnixTime := expectedTime.Unix()
+
+	msg1 := newMessage(expectedTime, "1", "a")
+	producer.ExpectInputAndSucceed()
+	WriteMessage("topic1", msg1, msg1.Source, KEY_BY_TIMESTAMP, producer)
+	out1 := <-producer.Successes()
+	keyBytes,err  := out1.Key.Encode()
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+	}
+
+	assert.Equal(t, string(expectedTimeAsUnixTime), string(keyBytes))
+}
+
+func TestKeyByContainerId(t *testing.T) {
+	producer := NewProducer(t)
+
+	expectedContainerId := "containerABC"
+
+	msg1 := newMessage(time.Now(), "1", "a")
+	producer.ExpectInputAndSucceed()
+	WriteMessage("topic1", msg1, expectedContainerId, KEY_BY_CONTAINER_ID, producer)
+	out1 := <-producer.Successes()
+	keyBytes,err  := out1.Key.Encode()
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+	}
+
+	assert.Equal(t, expectedContainerId, string(keyBytes))
+}
+
 
 func assertTopic(t *testing.T, expectedTopic string, message *sarama.ProducerMessage) {
 	assert.Equal(t, expectedTopic, message.Topic)

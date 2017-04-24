@@ -25,7 +25,7 @@ func TestConsumesSingleLogMessagesFromDocker(t *testing.T) {
 	lf := createLogPair(producer, stream)
 
 	producer.ExpectInputAndSucceed()
-	ConsumeLog(&lf, "topic")
+	ConsumeLog(&lf, "topic", KEY_BY_TIMESTAMP)
 
 	recvMsg := <-producer.Successes()
 	assertLineMatch(t, "alpha", recvMsg)
@@ -49,7 +49,7 @@ func TestConsumesMultipleLogMessagesFromDocker(t *testing.T) {
 	producer.ExpectInputAndSucceed()
 	producer.ExpectInputAndSucceed()
 	producer.ExpectInputAndSucceed()
-	ConsumeLog(&lf, "topic")
+	ConsumeLog(&lf, "topic", KEY_BY_TIMESTAMP)
 
 	assertLineMatch(t, "alpha", <-producer.Successes())
 	assertLineMatch(t, "beta", <-producer.Successes())

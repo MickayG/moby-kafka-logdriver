@@ -6,4 +6,3 @@ support log driver plugins which allows people to add extra
 functionality to handle logs coming out of docker containers.
 
 This plugin allows users to route all Moby/Docker logs to Kafka.
-
