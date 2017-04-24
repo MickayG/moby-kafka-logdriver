@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := test
 
 NAME=mickyg/kafka-logdriver
-TAG=0.1
+TAG=latest
 
 clean:
 	@rm -rf kafka-logdriver.tar.gz
