@@ -86,7 +86,7 @@ func TestJsonIncludesContainerInformation(t *testing.T) {
 	outMsg := unmarshallMessage(recvMsg, t)
 	assert.Equal(t, expectedContainerId, outMsg.ContainerId)
 	assert.Equal(t, expectedContainerName, outMsg.ContainerName)
-	assert.Equal(t, expectedContainerImageID, outMsg.ContainerImageID)
+	assert.Equal(t, expectedContainerImageID, outMsg.ContainerImageId)
 	assert.Equal(t, expectedContainerImageName, outMsg.ContainerImageName)
 }
 
