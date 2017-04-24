@@ -61,6 +61,9 @@ func TestConsumesMultipleLogMessagesFromDocker(t *testing.T) {
 func TestJsonIncludesContainerInformation(t *testing.T) {
 	expectedContainerId := "containerid1"
 	expectedContainerName := "containername1"
+	expectedContainerImageName := "my/image"
+	expectedContainerImageID := "23293480238"
+
 
 	producer := NewProducer(t)
 	defer producer.Close()
@@ -72,6 +75,9 @@ func TestJsonIncludesContainerInformation(t *testing.T) {
 	lf := createLogPair(producer, stream)
 	lf.info.ContainerID = expectedContainerId
 	lf.info.ContainerName = expectedContainerName
+	lf.info.ContainerImageName = expectedContainerImageName
+	lf.info.ContainerImageID = expectedContainerImageID
+
 
 	producer.ExpectInputAndSucceed()
 	ConsumeLog(&lf, "topic", KEY_BY_TIMESTAMP)
@@ -80,6 +86,8 @@ func TestJsonIncludesContainerInformation(t *testing.T) {
 	outMsg := unmarshallMessage(recvMsg, t)
 	assert.Equal(t, expectedContainerId, outMsg.ContainerId)
 	assert.Equal(t, expectedContainerName, outMsg.ContainerName)
+	assert.Equal(t, expectedContainerImageID, outMsg.ContainerImageID)
+	assert.Equal(t, expectedContainerImageName, outMsg.ContainerImageName)
 }
 
 func createLogPair(producer *mocks.AsyncProducer, stream io.ReadCloser) logPair {

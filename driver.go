@@ -29,6 +29,8 @@ type LogMessage struct {
 	Partial   bool
 	ContainerName string
 	ContainerId string
+	ContainerImageName string
+	ContainerImageID string
 
 	// Err is an error associated with a message. Completeness of a message
 	// with Err is not expected, tho it may be partially complete (fields may
@@ -158,6 +160,8 @@ func ConsumeLog(lf *logPair, topic string, keyStrategy KeyStrategy) {
 		msg.Timestamp = time.Unix(0, buf.TimeNano)
 		msg.ContainerId = lf.info.ContainerID
 		msg.ContainerName = lf.info.ContainerName
+		msg.ContainerImageName = lf.info.ContainerImageName
+		msg.ContainerImageID = lf.info.ContainerImageID
 
 		err := WriteMessage(topic, msg, lf.info.ContainerID, keyStrategy, lf.producer)
 		if err != nil {
