@@ -9,10 +9,15 @@ import (
 )
 
 type KeyStrategy int
-
 const (
 	KEY_BY_CONTAINER_ID KeyStrategy = iota
 	KEY_BY_TIMESTAMP    KeyStrategy = iota
+)
+
+type PartitionStrategy int
+const (
+	PARTITION_ROUND_ROBIN PartitionStrategy = iota
+	PARTITION_KEY_HASH PartitionStrategy = iota
 )
 
 func getKeyStrategyFromString(keyStrategyString string) (KeyStrategy, error) {
@@ -24,13 +29,39 @@ func getKeyStrategyFromString(keyStrategyString string) (KeyStrategy, error) {
 	case "key_by_timestamp":
 		return KEY_BY_TIMESTAMP, nil
 	default:
-		return 0, errors.New("Unknown keying strategy " + keyStrategyString)
+		return 0, errors.New("Unknown keying strategy " + keyStrategyString +". Expected: key_by_container_id,key_by_timestamp" )
+	}
+}
+
+func getPartitionStrategyFromString(partitionStrategy string) (PartitionStrategy, error) {
+	// Trim and whitespace and lowercase the string so it matches
+	// no matter what someone has put in
+	switch strings.TrimSpace(strings.ToLower(partitionStrategy)) {
+	case "round_robin":
+		return PARTITION_ROUND_ROBIN, nil
+	case "key_hash":
+		return PARTITION_KEY_HASH, nil
+	default:
+		return 0, errors.New("Unknown partition strategy" + partitionStrategy +". Expected: round_robin,key_hash")
 	}
 }
 
 // Create a Sarama Kafka client with the broker list
 // Will pass back the client and any errors
-func CreateClient(brokerList []string) (sarama.Client, error){
+func CreateClient(brokerList []string, partitionStrategy PartitionStrategy) (sarama.Client, error){
+	conf := sarama.NewConfig()
+
+	switch partitionStrategy {
+	case PARTITION_KEY_HASH:
+		conf.Producer.Partitioner = sarama.NewHashPartitioner
+	case PARTITION_ROUND_ROBIN:
+		conf.Producer.Partitioner = sarama.NewRoundRobinPartitioner
+	default:
+		err := errors.New("Unknown partition strategy: " + string(partitionStrategy))
+		return nil, err
+	}
+
+
 	return sarama.NewClient(brokerList, nil)
 }
 

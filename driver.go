@@ -53,6 +53,7 @@ type KafkaDriver struct {
 	client      *sarama.Client
 	outputTopic string
 	keyStrategy KeyStrategy
+	partitionStrategy PartitionStrategy
 }
 
 type logPair struct {

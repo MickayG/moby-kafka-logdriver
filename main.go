@@ -23,8 +23,9 @@ func main() {
 	addrs := getKafkaBrokersEnv()
 	outputTopic := getKafkaTopicEnv()
 	keyStrat := getKeyStrategyEnv()
+	partitionStrat := getPartitionStrategyEnv()
 
-	client, err := CreateClient(addrs)
+	client, err := CreateClient(addrs, partitionStrat)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "unable to connect to kafka:", err)
 		os.Exit(1)
@@ -37,6 +38,19 @@ func main() {
 	}
 
 	client.Close()
+}
+
+func getPartitionStrategyEnv() PartitionStrategy {
+	partitionStrategyStr := os.Getenv("PARTITION_STRATEGY")
+	if partitionStrategyStr == "" {
+		partitionStrategyStr = "round_robin"
+	}
+	partitionStrat, err := getPartitionStrategyFromString(partitionStrategyStr)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "unknown partition strategy", err)
+		os.Exit(1)
+	}
+	return partitionStrat
 }
 
 func getKafkaBrokersEnv() []string {
