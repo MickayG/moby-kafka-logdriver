@@ -9,7 +9,25 @@ This plugin allows users to route all Moby/Docker logs to Kafka.
 
 Installation
 -----------------
-**This plugin requires at least Docker version 17.05**
+***This plugin requires at least Docker version 17.05***
+
+Install the plugin from Dockerhub:
+
+```
+docker plugin install mickyg/kafka-logdriver:latest
+```
+
+Now configure it as per the Configuration section below, then enable the plugin:
+```
+docker plugin enable mickyg/kafka-logdriver
+```
+Now it's installed and ready to go.
+
+To use the log driver for a given container, use the `--logdriver` flag. For example, to start the hello-world
+container with all of it's logs being sent to Kafka, run the command:
+```
+docker run --log-driver mickyg/kafka-logdriver hello-world
+```
 
 
 
@@ -17,7 +35,6 @@ Configuration
 ----------------
 
 Once the plugin has been installed, you can modify the below arguments with the command
-
 
 `docker plugin set kafka-logdriver <OPTION>=<VALUE>`
 
