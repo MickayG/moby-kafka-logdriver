@@ -24,5 +24,5 @@ install: clean package
 enable:
 	@docker plugin enable ${NAME}:${TAG}
 
-push: test install
+push:
 	@docker plugin push ${NAME}:${TAG}
