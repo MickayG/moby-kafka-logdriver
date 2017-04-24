@@ -5,6 +5,7 @@ clean:
 	@rm -rf kafka-logdriver.tar.gz
 
 test:
+	@go get -t
 	@go test
 
 package:
@@ -22,4 +23,7 @@ enable: install
 
 push: enable
 	@docker plugin push ${NAME}:${TAG}
+
+
+default: test
 
