@@ -5,6 +5,7 @@ TAG=0.1
 
 clean:
 	@rm -rf kafka-logdriver.tar.gz
+	@rm -rf kafka-logdriver
 
 test:
 	@go get -t
@@ -20,8 +21,8 @@ install: clean package
 	@tar -xvf kafka-logdriver.tar.gz
 	@docker plugin create ${NAME}:${TAG} kafka-logdriver
 
-enable: install
+enable:
 	@docker plugin enable ${NAME}:${TAG}
 
-push: enable
+push: test install
 	@docker plugin push ${NAME}:${TAG}
