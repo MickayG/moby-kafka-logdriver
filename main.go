@@ -20,29 +20,9 @@ func main() {
 	levelVal := os.Getenv("LOG_LEVEL")
 	setLogLevel(levelVal)
 
-	addrList := os.Getenv("KAFKA_BROKER_ADDR")
-	if addrList == "" {
-		fmt.Fprintln(os.Stderr, "Missing environment var KAFKA_BROKER_ADDR")
-		os.Exit(1)
-	}
-	addrs := strings.Split(addrList, ",")
-
-	outputTopic := os.Getenv("LOG_TOPIC")
-	if outputTopic == "" {
-		outputTopic = "dockerlogs"
-	}
-
-
-	keyStrategyVar := os.Getenv("KEY_STRATEGY")
-	if keyStrategyVar == "" {
-		keyStrategyVar = "key_by_timestamp"
-	}
-
-	keyStrat, err := getKeyStrategyFromString(keyStrategyVar)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "unknown key strategy" , err)
-		os.Exit(1)
-	}
+	addrs := getKafkaBrokersEnv()
+	outputTopic := getKafkaTopicEnv()
+	keyStrat := getKeyStrategyEnv()
 
 	client, err := CreateClient(addrs)
 	if err != nil {
@@ -57,6 +37,37 @@ func main() {
 	}
 
 	client.Close()
+}
+
+func getKafkaBrokersEnv() []string {
+	addrList := os.Getenv("KAFKA_BROKER_ADDR")
+	if addrList == "" {
+		fmt.Fprintln(os.Stderr, "Missing environment var KAFKA_BROKER_ADDR")
+		os.Exit(1)
+	}
+	addrs := strings.Split(addrList, ",")
+	return addrs
+}
+
+func getKafkaTopicEnv() string {
+	outputTopic := os.Getenv("LOG_TOPIC")
+	if outputTopic == "" {
+		outputTopic = "dockerlogs"
+	}
+	return outputTopic
+}
+
+func getKeyStrategyEnv() KeyStrategy {
+	keyStrategyVar := os.Getenv("KEY_STRATEGY")
+	if keyStrategyVar == "" {
+		keyStrategyVar = "key_by_timestamp"
+	}
+	keyStrat, err := getKeyStrategyFromString(keyStrategyVar)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "unknown key strategy", err)
+		os.Exit(1)
+	}
+	return keyStrat
 }
 
 func setLogLevel(levelVal string) {
