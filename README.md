@@ -78,12 +78,12 @@ Each log message will be written to a single Kafka message. The message within K
 {
 	"Line": "This message shows that your installation appears to be working correctly.",
 	"Source": "stdout",
-	"Timestamp": "2017-04-24T22:54:34.838800495Z",
+	"Timestamp": "2017-04-24T23:03:52.065164047Z",
 	"Partial": false,
-	"ContainerName": "/MickysHelloWorld",
-	"ContainerId": "8a5baad8e2511f58ac1754509550e721062dd8733a4af362356b91b26d73dd62",
+	"ContainerName": "/HelloOutThere",
+	"ContainerId": "be2af19df661fb08561a8a99c734f637f9dc1397c43d88379479fceb5fc0666d",
 	"ContainerImageName": "hello-world",
-	"ContainerImageID": "sha256:48b5124b2768d2b917edcb640435044a97967015485e812545546cbed5cf0233",
+	"ContainerImageId": "sha256:48b5124b2768d2b917edcb640435044a97967015485e812545546cbed5cf0233",
 	"Err": null
 }
 ```
