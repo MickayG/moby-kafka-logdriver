@@ -62,7 +62,7 @@ func CreateClient(brokerList []string, partitionStrategy PartitionStrategy) (sar
 	}
 
 
-	return sarama.NewClient(brokerList, nil)
+	return sarama.NewClient(brokerList, conf)
 }
 
 // Create a producer from a Sarama Kafka client
