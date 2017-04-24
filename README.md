@@ -72,3 +72,34 @@ For example, to change the topic to "logs"
 |PARTITION_STRATEGY| Kafka partitioner type. Options are:<br>*round_robin* - Write to each partition one after another, i.e equally distributed<br>*key_hash* - Partition based on the hash of the message key|round_robin|
 |LOG_LEVEL| Log level of the internal logger. Options: debug, info, warn, error|info|
 
+## Output Format
+Each log message will be written to a single Kafka message. The message within Kafka is a JSON record containing the log message and details about the source of the message. An example log message pretty-printed is below. Mesages are not stored pretty-printed in Kafka.
+```
+{
+	"Line": "This message shows that your installation appears to be working correctly.",
+	"Source": "stdout",
+	"Timestamp": "2017-04-24T22:54:34.838800495Z",
+	"Partial": false,
+	"ContainerName": "/MickysHelloWorld",
+	"ContainerId": "8a5baad8e2511f58ac1754509550e721062dd8733a4af362356b91b26d73dd62",
+	"ContainerImageName": "hello-world",
+	"ContainerImageID": "sha256:48b5124b2768d2b917edcb640435044a97967015485e812545546cbed5cf0233",
+	"Err": null
+}
+```
+
+**Fields**
+
+| Field | Description |
+| ----- | ----------- |
+| Line  | The log message itself|
+ | Source | Source of the log message as reported by docker |
+ | Timestamp | Timestamp that the log was collected by the log driver |
+ | Partial | Whether docker reported that the log message was only partially collected |
+ |ContainerName | Name of the container that generated the log message |
+ | ContainerId | Id of the container that generated the log message |
+ | ContainerImageName | Name of the container's image |
+ | ContainerImageId | ID of the container's image |
+ | Err | Usually null, otherwise will be a string containing and error from the logdriver |
+
+
