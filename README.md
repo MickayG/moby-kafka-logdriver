@@ -17,7 +17,12 @@ from this repository.
 ```
 docker plugin install mickyg/kafka-logdriver:latest
 ```
-Now configure it as per the Configuration section below, **you must set the KAFKA_BROKER_ADDR option**, then enable the plugin:
+Set the Kafka brokers and configure the plugin as per the configuration section.
+In the example below the host 192.168.0.1 is a Kafka broker.
+```
+docker plugin set mickyg/kafka-logdriver:latest KAFKA_BROKER_ADDR="192.168.0.1:9092"
+```
+Then enable the plugin
 ```
 docker plugin enable mickyg/kafka-logdriver:latest
 ```
