@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/Sirupsen/logrus"
@@ -27,8 +26,7 @@ func main() {
 
 	client, err := CreateClient(addrs, partitionStrat)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "unable to connect to kafka:", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	h := sdk.NewHandler(`{"Implements": ["LoggingDriver"]}`)
@@ -47,7 +45,7 @@ func getPartitionStrategyEnv() PartitionStrategy {
 	}
 	partitionStrat, err := getPartitionStrategyFromString(partitionStrategyStr)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "unknown partition strategy", err)
+		logrus.Error("unknown partition strategy", err)
 		os.Exit(1)
 	}
 	return partitionStrat
@@ -56,7 +54,7 @@ func getPartitionStrategyEnv() PartitionStrategy {
 func getKafkaBrokersEnv() []string {
 	addrList := os.Getenv("KAFKA_BROKER_ADDR")
 	if addrList == "" {
-		fmt.Fprintln(os.Stderr, "Missing environment var KAFKA_BROKER_ADDR")
+		logrus.Error("Missing environment var KAFKA_BROKER_ADDR")
 		os.Exit(1)
 	}
 	addrs := strings.Split(addrList, ",")
@@ -75,10 +73,12 @@ func getKeyStrategyEnv() KeyStrategy {
 	keyStrategyVar := os.Getenv("KEY_STRATEGY")
 	if keyStrategyVar == "" {
 		keyStrategyVar = "key_by_timestamp"
+		logrus.Debug("Defaulting KEY_STRATEGY to key_by_timestamp")
 	}
+
 	keyStrat, err := getKeyStrategyFromString(keyStrategyVar)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "unknown key strategy", err)
+		logrus.Error("unknown key strategy", err)
 		os.Exit(1)
 	}
 	return keyStrat
@@ -91,7 +91,7 @@ func setLogLevel(levelVal string) {
 	if level, exists := logLevels[levelVal]; exists {
 		logrus.SetLevel(level)
 	} else {
-		fmt.Fprintln(os.Stderr, "invalid log level: ", levelVal)
+		logrus.Error("invalid log level: ", levelVal)
 		os.Exit(1)
 	}
 }
