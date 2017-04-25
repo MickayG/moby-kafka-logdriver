@@ -90,6 +90,34 @@ func TestJsonIncludesContainerInformation(t *testing.T) {
 	assert.Equal(t, expectedContainerImageName, outMsg.ContainerImageName)
 }
 
+
+func TestTopicCanBeOverridenWithEnvironmentVariable(t *testing.T) {
+	overrideTopic := "override"
+	defaultTopic := "default"
+
+	var driver KafkaDriver
+	driver.outputTopic = defaultTopic
+
+	envVars := []string{TOPIC_OVERRIDE_ENV + "=" + overrideTopic}
+	info := logger.Info{ContainerEnv: envVars}
+
+	chosenTopic := getOutputTopic(&driver, info)
+	assert.Equal(t, overrideTopic, chosenTopic)
+}
+
+func TestTopicDefaultsToGlobalVariableWhenNotOverriden(t *testing.T) {
+	defaultTopic := "default"
+
+	var driver KafkaDriver
+	driver.outputTopic = defaultTopic
+
+	envVars := []string{}
+	info := logger.Info{ContainerEnv: envVars}
+
+	chosenTopic := getOutputTopic(&driver, info)
+	assert.Equal(t, defaultTopic, chosenTopic)
+}
+
 func createLogPair(producer *mocks.AsyncProducer, stream io.ReadCloser) logPair {
 	var lf logPair
 	lf.producer = producer

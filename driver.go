@@ -19,6 +19,7 @@ import (
 	"github.com/tonistiigi/fifo"
 
 	"github.com/Shopify/sarama"
+	"strings"
 )
 
 // An mapped version of logger.Message where Line is a String, not a byte array
@@ -101,13 +102,17 @@ func (d *KafkaDriver) StartLogging(file string, logCtx logger.Info) error {
 		return errors.Wrapf(err,"unable to create kafka consumer")
 	}
 
-	lf := &logPair{ f, logCtx, producer}
+	// The user can specify a custom topic with the below argument. If its present, use that as the
+	//   topic instead of the global configuration option
+	outputTopic := getOutputTopic(d, logCtx)
+
+	lf := &logPair{f, logCtx, producer}
 	d.logs[file] = lf
 	d.idx[logCtx.ContainerID] = lf
 
 	d.mu.Unlock()
 
-	go ConsumeLog(lf, d.outputTopic, d.keyStrategy)
+	go ConsumeLog(lf, outputTopic, d.keyStrategy)
 
 	return nil
 }
@@ -175,4 +180,24 @@ func ConsumeLog(lf *logPair, topic string, keyStrategy KeyStrategy) {
 func (d *KafkaDriver) ReadLogs(info logger.Info, config logger.ReadConfig) (io.ReadCloser, error) {
 	//TODO
 	return nil, nil
+}
+
+
+
+func getOutputTopic(d *KafkaDriver, logCtx logger.Info) string {
+	defaultTopic := d.outputTopic
+	for _, env := range logCtx.ContainerEnv {
+		// Only split on the first '='. An equals might be present in the topic name, we don't want to split on that
+		envArg := strings.SplitN(env, "=", 2)
+		// Check that there was a key=value and not just a random key.
+		if len(envArg) == 2 {
+			envName := envArg[0]
+			envValue := envArg[1]
+			if strings.ToUpper(envName) == TOPIC_OVERRIDE_ENV {
+				logrus.WithField("topic", envValue).Info("topic overriden for container")
+				defaultTopic = envValue
+			}
+		}
+	}
+	return defaultTopic
 }

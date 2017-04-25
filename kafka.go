@@ -20,6 +20,10 @@ const (
 	PARTITION_KEY_HASH PartitionStrategy = iota
 )
 
+// Name of the environment variable the user can use to override the topic name to allow per-container topics
+const TOPIC_OVERRIDE_ENV string = "LOG_TOPIC"
+
+
 func getKeyStrategyFromString(keyStrategyString string) (KeyStrategy, error) {
 	// Trim and whitespace and lowercase the string so it matches
 	// no matter what someone has put in

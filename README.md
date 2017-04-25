@@ -59,6 +59,9 @@ docker run --log-driver mickyg/kafka-logdriver:latest hello-world
 
 ## Configuration
 
+### Global Configuration
+
+Docker logdriver plugins can be configured on global/plugin basis. The below configurations when applied act on all containers where the logdriver plugin is used.
 
 Once the plugin has been installed, you can modify the below arguments with the command
 
@@ -76,6 +79,25 @@ For example, to change the topic to "logs"
 |KEY_STRATEGY| Method in which Kafka methods should be keyed. Options are: <br>*key_by_timestamp* - Key each message by the timestamp of the log message <br>*key_by_container_id* - Key each message with the container id. | key_by_timestamp
 |PARTITION_STRATEGY| Kafka partitioner type. Options are:<br>*round_robin* - Write to each partition one after another, i.e equally distributed<br>*key_hash* - Partition based on the hash of the message key|round_robin|
 |LOG_LEVEL| Log level of the internal logger. Options: debug, info, warn, error|info|
+
+
+### Per Container Configuration
+
+Certain global configurations can be overridden on a per-container basis with container environment variables.
+For example containers can be configured to write to different topics:
+```
+docker run --log-driver mickyg/kafka-logdriver:latest -e LOGGING_KAFKA_TOPIC=alphalogs --name "Alpha" hello-world
+docker run --log-driver mickyg/kafka-logdriver:latest -e LOGGING_KAFKA_TOPIC=betalogs --name "Beta" hello-world
+```
+The logs from the container "Alpha" will be written to "alphalogs", the logs from container "beta" will be written to "betalogs"
+
+The available container-level configurations are in the table below.
+
+| Option | Description |
+| -------| ----------- |
+| LOG_TOPIC | Topic to which logs will be written to. If not set, will default to global LOG_TOPIC variable |
+
+
 
 ## Output Format
 Each log message will be written to a single Kafka message. The message within Kafka is a JSON record containing the log message and details about the source of the message. An example log message pretty-printed is below. Mesages are not stored pretty-printed in Kafka.
