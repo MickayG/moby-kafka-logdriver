@@ -14,8 +14,9 @@ from this repository.
 
 ### Install the plugin from Dockerhub:
 
+Install the plugin but add the --disable flag so it does not start immediately. The kafka brokers must be set first.
 ```
-docker plugin install mickyg/kafka-logdriver:latest
+docker plugin install --disable mickyg/kafka-logdriver:latest
 ```
 Set the Kafka brokers and configure the plugin as per the configuration section.
 In the example below the host 192.168.0.1 is a Kafka broker.
