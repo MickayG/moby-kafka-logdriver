@@ -10,16 +10,16 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api/types/plugins/logdriver"
 	"github.com/docker/docker/daemon/logger"
 	protoio "github.com/gogo/protobuf/io"
 	"github.com/pkg/errors"
 	"github.com/tonistiigi/fifo"
-
 	"github.com/Shopify/sarama"
 	"strings"
+	"encoding/json"
+	"strconv"
 )
 
 // An mapped version of logger.Message where Line is a String, not a byte array
@@ -64,6 +64,10 @@ type logPair struct {
 	producer sarama.AsyncProducer
 }
 
+
+// How many seconds to keep trying to consume from kafka until the connection stops
+const READ_LOGS_TIMEOUT  = 10 * time.Second
+
 func newDriver(client *sarama.Client, outputTopic string, keyStrategy KeyStrategy) *KafkaDriver {
 	return &KafkaDriver{
 		logs: make(map[string]*logPair),
@@ -104,7 +108,7 @@ func (d *KafkaDriver) StartLogging(file string, logCtx logger.Info) error {
 
 	// The user can specify a custom topic with the below argument. If its present, use that as the
 	//   topic instead of the global configuration option
-	outputTopic := getOutputTopic(d, logCtx)
+	outputTopic := getOutputTopicForContainer(d, logCtx)
 
 	lf := &logPair{f, logCtx, producer}
 	d.logs[file] = lf
@@ -112,7 +116,7 @@ func (d *KafkaDriver) StartLogging(file string, logCtx logger.Info) error {
 
 	d.mu.Unlock()
 
-	go ConsumeLog(lf, outputTopic, d.keyStrategy)
+	go writeLogsToKafka(lf, outputTopic, d.keyStrategy)
 
 	return nil
 }
@@ -132,10 +136,21 @@ func (d *KafkaDriver) StopLogging(file string) error {
 }
 
 func (d* KafkaDriver) GetCapability() logger.Capability {
-	return logger.Capability{ReadLogs: false}
+	return logger.Capability{ReadLogs: true}
 }
 
-func ConsumeLog(lf *logPair, topic string, keyStrategy KeyStrategy) {
+func (d *KafkaDriver) ReadLogs(info logger.Info, config logger.ReadConfig) (io.ReadCloser, error) {
+	logTopic := getOutputTopicForContainer(d, info)
+	consumer,err := sarama.NewConsumerFromClient(*d.client)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Unable to create consumer for logs")
+	}
+
+	return readLogsFromKafka(consumer, logTopic, info, config)
+}
+
+
+func writeLogsToKafka(lf *logPair, topic string, keyStrategy KeyStrategy) {
 	dec := protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
 	var buf logdriver.LogEntry
@@ -177,14 +192,137 @@ func ConsumeLog(lf *logPair, topic string, keyStrategy KeyStrategy) {
 	}
 }
 
-func (d *KafkaDriver) ReadLogs(info logger.Info, config logger.ReadConfig) (io.ReadCloser, error) {
-	//TODO
-	return nil, nil
+func readLogsFromKafka(consumer sarama.Consumer, logTopic string, info logger.Info, config logger.ReadConfig) (io.ReadCloser, error) {
+	partitions, err := consumer.Partitions(logTopic)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Unable to list partitions for topic " + logTopic)
+	}
+
+	highWaterMarks := consumer.HighWaterMarks()
+
+	r, w := io.Pipe()
+
+	// This channel will be used for the consumers to push data into, and the writes to write data from
+	logMessages := make(chan logdriver.LogEntry)
+	halt := make(chan bool)
+
+	var wg sync.WaitGroup
+
+	// We need to create a consumer for each partition as the Sarama library only reads from one partition at at a time
+	for _,partition := range partitions {
+		logrus.WithField("topic", logTopic).Debug("Reading partition: " + strconv.Itoa(int(partition)))
+
+
+		//Default offset to oldest
+		offset := sarama.OffsetOldest
+		if config.Tail != 0 {
+			hwm := highWaterMarks[logTopic][partition]
+			offset = hwm - int64(config.Tail)
+			logrus.Debug("Reading ", logTopic, " partition ", strconv.Itoa(int(partition)), " with offset ", strconv.Itoa(int(offset)), " with high water mark of ", hwm)
+		}
+
+		wg.Add(1)
+		go consumeFromTopic(consumer, logTopic, int32(partition), offset, info.ContainerID, logMessages, halt, &wg)
+	}
+
+	// This method will read from the logMessages channel and write the messages to protobuf
+	go writeLogsToWriter(w, logMessages, halt)
+
+	// If all consumers stop, then inform the writeLogsToOutput routine to stop
+	go func() {
+		wg.Wait()
+		close(halt)
+	}()
+
+	return r, nil
+}
+
+func writeLogsToWriter(w *io.PipeWriter, entries chan logdriver.LogEntry, halt chan bool) {
+	enc := protoio.NewUint32DelimitedWriter(w, binary.BigEndian)
+	defer enc.Close()
+	// If this method returns and stop writing logs, we also want to send a message to the kafka consumers
+	// to tell them to stop consuming too
+	//defer close(halt)
+
+	for {
+		select {
+		case logEntry := <-entries:
+			err := enc.WriteMsg(&logEntry)
+			if err != nil {
+				logrus.Error("Unable to write out log message", err)
+				w.CloseWithError(err)
+				close(halt)
+				return
+			}
+		case _, ok :=<-halt:
+			if !ok {
+				w.Close()
+				return
+			}
+
+		default:
+		}
+	}
+
+
+}
+
+func consumeFromTopic(consumer sarama.Consumer, topic string, partition int32, offset int64, containerId string, logMessages chan logdriver.LogEntry, halt chan bool, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	logrus.WithField("topic", topic).WithField("partition", partition).WithField("offset", offset).WithField("containerId", containerId).Info("Beginning consuming of messages")
+
+	partitionConsumer, err := consumer.ConsumePartition(topic, partition, offset)
+	if err != nil {
+		// Log an error and close the channel, effectively stopping all the consumers
+		logrus.WithField("topic", topic).WithField("partition", partition).Error("Unable to consume from partition", err)
+		close(logMessages)
+	}
+
+	defer partitionConsumer.Close()
+
+	lastMessage := time.Now()
+
+	for {
+		select {
+		case msg, ok := <-partitionConsumer.Messages():
+			if !ok {
+				logrus.WithField("topic", topic).WithField("partition", partition).Error("Consuming from partition stopped", err)
+				return
+			}
+
+			var logMessage LogMessage
+			json.Unmarshal(msg.Value, &logMessage)
+			// If the container ids are the same, then output the logs
+			if logMessage.ContainerId == containerId {
+				//Now recreate the input protobuf logentry
+				var logEntry logdriver.LogEntry
+				logEntry.TimeNano = logMessage.Timestamp.UnixNano()
+				logEntry.Line = []byte(logMessage.Line)
+				logEntry.Partial= logMessage.Partial
+				logEntry.Source = logMessage.Source
+
+				// Add it to the channel for the next routine to write it out
+				logMessages <- logEntry
+			}
+
+		case <-halt:
+			// It is likely that the consumer of the logs has closed the stream. We should therefore stop consuming
+			logrus.Debug("Halting log reading")
+			return
+
+		default:
+			if time.Now().Sub(lastMessage) > READ_LOGS_TIMEOUT {
+				logrus.Debug("Closing consumer, waited 10 seconds for additional logs")
+				return
+			}
+		}
+
+	}
 }
 
 
-
-func getOutputTopic(d *KafkaDriver, logCtx logger.Info) string {
+func getOutputTopicForContainer(d *KafkaDriver, logCtx logger.Info) string {
 	defaultTopic := d.outputTopic
 	for _, env := range logCtx.ContainerEnv {
 		// Only split on the first '='. An equals might be present in the topic name, we don't want to split on that
