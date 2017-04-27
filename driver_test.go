@@ -12,6 +12,10 @@ import (
 	"github.com/Shopify/sarama/mocks"
 	"github.com/docker/docker/daemon/logger"
 	"github.com/stretchr/testify/assert"
+	"github.com/Shopify/sarama"
+	"io/ioutil"
+	"encoding/json"
+	"strconv"
 )
 
 
@@ -26,7 +30,7 @@ func TestConsumesSingleLogMessagesFromDocker(t *testing.T) {
 	lf := createLogPair(producer, stream)
 
 	producer.ExpectInputAndSucceed()
-	ConsumeLog(&lf, "topic", KEY_BY_TIMESTAMP)
+	writeLogsToKafka(&lf, "topic", KEY_BY_TIMESTAMP)
 
 	recvMsg := <-producer.Successes()
 	assertLineMatch(t, "alpha", recvMsg)
@@ -50,7 +54,7 @@ func TestConsumesMultipleLogMessagesFromDocker(t *testing.T) {
 	producer.ExpectInputAndSucceed()
 	producer.ExpectInputAndSucceed()
 	producer.ExpectInputAndSucceed()
-	ConsumeLog(&lf, "topic", KEY_BY_TIMESTAMP)
+	writeLogsToKafka(&lf, "topic", KEY_BY_TIMESTAMP)
 
 	assertLineMatch(t, "alpha", <-producer.Successes())
 	assertLineMatch(t, "beta", <-producer.Successes())
@@ -80,7 +84,7 @@ func TestJsonIncludesContainerInformation(t *testing.T) {
 
 
 	producer.ExpectInputAndSucceed()
-	ConsumeLog(&lf, "topic", KEY_BY_TIMESTAMP)
+	writeLogsToKafka(&lf, "topic", KEY_BY_TIMESTAMP)
 
 	recvMsg := <-producer.Successes()
 	outMsg := unmarshallMessage(recvMsg, t)
@@ -101,7 +105,7 @@ func TestTopicCanBeOverridenWithEnvironmentVariable(t *testing.T) {
 	envVars := []string{TOPIC_OVERRIDE_ENV + "=" + overrideTopic}
 	info := logger.Info{ContainerEnv: envVars}
 
-	chosenTopic := getOutputTopic(&driver, info)
+	chosenTopic := getOutputTopicForContainer(&driver, info)
 	assert.Equal(t, overrideTopic, chosenTopic)
 }
 
@@ -114,9 +118,199 @@ func TestTopicDefaultsToGlobalVariableWhenNotOverriden(t *testing.T) {
 	envVars := []string{}
 	info := logger.Info{ContainerEnv: envVars}
 
-	chosenTopic := getOutputTopic(&driver, info)
+	chosenTopic := getOutputTopicForContainer(&driver, info)
 	assert.Equal(t, defaultTopic, chosenTopic)
 }
+
+
+func TestReadingSingleLineFromOnePartition(t *testing.T) {
+	config := sarama.NewConfig()
+	consumer := mocks.NewConsumer(t, config)
+
+
+	expectedLine := "alpha"
+	expectedSource := "stdout"
+	expectedPartial := false
+	expectedTime := time.Now()
+	expectedContainerId := "3423423"
+
+	inputBytes := createLogMessage(expectedLine, expectedSource, expectedPartial, expectedTime, expectedContainerId)
+
+	var logInfo logger.Info
+	logInfo.ContainerID = expectedContainerId
+
+	topics := make(map[string][]int32)
+	topics["logtopic"] = []int32{1}
+	consumer.SetTopicMetadata(topics)
+	partition := consumer.ExpectConsumePartition("logtopic", 0, sarama.OffsetOldest)
+
+	expectMessage(inputBytes, partition)
+
+	partition.ExpectMessagesDrainedOnClose()
+	r, err := readLogsFromKafka(consumer, "logtopic", logInfo)
+
+	dec := protoio.NewUint32DelimitedReader(r, binary.BigEndian, 1e6)
+	var outputLogMessage logdriver.LogEntry
+	err = dec.ReadMsg(&outputLogMessage)
+	if err != nil {
+		t.Error(err)
+	}
+
+	dec.Close()
+
+	assert.Equal(t, expectedLine, string(outputLogMessage.Line))
+	assert.Equal(t, expectedSource, outputLogMessage.Source)
+	assert.Equal(t, expectedTime.UnixNano(), outputLogMessage.TimeNano)
+	assert.Equal(t, expectedPartial, outputLogMessage.Partial)
+}
+
+
+func TestReadingMultipleLogMessages(t *testing.T) {
+	config := sarama.NewConfig()
+	consumer := mocks.NewConsumer(t, config)
+
+	expectedSource := "stdout"
+	expectedPartial := false
+	expectedTime := time.Now()
+	expectedContainerId := "3423423"
+
+	topics := make(map[string][]int32)
+	topics["logtopic"] = []int32{1}
+	consumer.SetTopicMetadata(topics)
+	partition := consumer.ExpectConsumePartition("logtopic", 0, sarama.OffsetOldest)
+
+	numberOfMessages := 10
+	for i := 0; i < numberOfMessages; i++ {
+		inputBytes := createLogMessage(strconv.Itoa(i), expectedSource, expectedPartial, expectedTime, expectedContainerId)
+		expectMessage(inputBytes, partition)
+	}
+
+	var logInfo logger.Info
+	logInfo.ContainerID = expectedContainerId
+
+	partition.ExpectMessagesDrainedOnClose()
+	r, err := readLogsFromKafka(consumer, "logtopic", logInfo)
+
+	dec := protoio.NewUint32DelimitedReader(r, binary.BigEndian, 1e6)
+	count := 0
+	for i := 0; i < numberOfMessages; i++ {
+		var outputLogMessage logdriver.LogEntry
+		err = dec.ReadMsg(&outputLogMessage)
+		if err != nil {
+			t.Error(err)
+		}
+
+		count++
+	}
+
+	dec.Close()
+
+	assert.Equal(t, numberOfMessages, count)
+}
+
+
+func TestReadingSingleLineFromMultiplePartitions(t *testing.T) {
+	config := sarama.NewConfig()
+	consumer := mocks.NewConsumer(t, config)
+
+
+	expectedSource := "stdout"
+	expectedPartial := false
+	expectedTime := time.Now()
+	expectedContainerId := "3423423"
+
+	var logInfo logger.Info
+	logInfo.ContainerID = expectedContainerId
+	topics := make(map[string][]int32)
+	topics["logtopic"] = []int32{1,2,3,4,5}
+	consumer.SetTopicMetadata(topics)
+
+	for r := range topics["logtopic"] {
+		msg := createLogMessage(strconv.Itoa(r), expectedSource, expectedPartial, expectedTime, expectedContainerId)
+		partition := consumer.ExpectConsumePartition("logtopic", int32(r), sarama.OffsetOldest)
+		expectMessage(msg, partition)
+
+	}
+
+	r, err := readLogsFromKafka(consumer, "logtopic", logInfo)
+
+	expectedMessageCount := len(topics["logtopic"])
+
+	//byteWrapper := bytes.NewReader(outputBytes)
+	dec := protoio.NewUint32DelimitedReader(r, binary.BigEndian, 1e6)
+
+	count := 0
+	for i := 0 ; i < len(topics["logtopic"]); i++ {
+		var outputLogMessage logdriver.LogEntry
+		err = dec.ReadMsg(&outputLogMessage)
+		if err != nil {
+			t.Error(err)
+		}
+		count++
+	}
+
+	dec.Close()
+
+	assert.Equal(t, expectedMessageCount, count)
+}
+
+func TestReadingDoesNotOutputLogsForOtherContainer(t *testing.T) {
+	config := sarama.NewConfig()
+	consumer := mocks.NewConsumer(t, config)
+
+	differentContainerId := "not_the_container_we_want"
+
+
+	expectedLine := "alpha"
+	expectedSource := "stdout"
+	expectedPartial := false
+	expectedTime := time.Now()
+	expectedContainerId := "3423423"
+
+	inputBytes := createLogMessage(expectedLine, expectedSource, expectedPartial, expectedTime, expectedContainerId)
+
+	var logInfo logger.Info
+	logInfo.ContainerID = differentContainerId
+
+	topics := make(map[string][]int32)
+	topics["logtopic"] = []int32{1}
+	consumer.SetTopicMetadata(topics)
+	partition := consumer.ExpectConsumePartition("logtopic", 0, sarama.OffsetOldest)
+
+	expectMessage(inputBytes, partition)
+
+	partition.ExpectMessagesDrainedOnClose()
+	r, err := readLogsFromKafka(consumer, "logtopic", logInfo)
+
+	// Wait a few seconds for the go threads to run
+	time.Sleep(3 * time.Second)
+
+	outputBytes, err := ioutil.ReadAll(r)
+	if err != nil {
+		t.Error(err)
+	}
+
+	assert.Equal(t, 0, len(outputBytes))
+}
+
+func expectMessage(inputBytes []byte, partition *mocks.PartitionConsumer) {
+	var outputMsg sarama.ConsumerMessage
+	outputMsg.Value = inputBytes
+	partition.YieldMessage(&outputMsg)
+}
+
+
+func createLogMessage(expectedLine string, expectedSource string, expectedPartial bool, expectedTime time.Time, expectedContainerId string) []byte {
+	var inputMessage LogMessage
+	inputMessage.Line = expectedLine
+	inputMessage.Source = expectedSource
+	inputMessage.Partial = expectedPartial
+	inputMessage.Timestamp = expectedTime
+	inputMessage.ContainerId = expectedContainerId
+	inputBytes, _ := json.Marshal(inputMessage)
+	return inputBytes
+}
+
 
 func createLogPair(producer *mocks.AsyncProducer, stream io.ReadCloser) logPair {
 	var lf logPair
