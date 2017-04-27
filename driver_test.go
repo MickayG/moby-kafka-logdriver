@@ -16,6 +16,7 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"strconv"
+
 )
 
 
@@ -140,14 +141,14 @@ func TestReadingSingleLineFromOnePartition(t *testing.T) {
 	logInfo.ContainerID = expectedContainerId
 
 	topics := make(map[string][]int32)
-	topics["logtopic"] = []int32{1}
+	topics["logtopic"] = []int32{0}
 	consumer.SetTopicMetadata(topics)
 	partition := consumer.ExpectConsumePartition("logtopic", 0, sarama.OffsetOldest)
 
 	expectMessage(inputBytes, partition)
 
 	partition.ExpectMessagesDrainedOnClose()
-	r, err := readLogsFromKafka(consumer, "logtopic", logInfo)
+	r, err := readLogsFromKafka(consumer, "logtopic", logInfo, logger.ReadConfig{})
 
 	dec := protoio.NewUint32DelimitedReader(r, binary.BigEndian, 1e6)
 	var outputLogMessage logdriver.LogEntry
@@ -175,11 +176,11 @@ func TestReadingMultipleLogMessages(t *testing.T) {
 	expectedContainerId := "3423423"
 
 	topics := make(map[string][]int32)
-	topics["logtopic"] = []int32{1}
+	topics["logtopic"] = []int32{0}
 	consumer.SetTopicMetadata(topics)
 	partition := consumer.ExpectConsumePartition("logtopic", 0, sarama.OffsetOldest)
 
-	numberOfMessages := 10
+	numberOfMessages := 100
 	for i := 0; i < numberOfMessages; i++ {
 		inputBytes := createLogMessage(strconv.Itoa(i), expectedSource, expectedPartial, expectedTime, expectedContainerId)
 		expectMessage(inputBytes, partition)
@@ -189,7 +190,7 @@ func TestReadingMultipleLogMessages(t *testing.T) {
 	logInfo.ContainerID = expectedContainerId
 
 	partition.ExpectMessagesDrainedOnClose()
-	r, err := readLogsFromKafka(consumer, "logtopic", logInfo)
+	r, err := readLogsFromKafka(consumer, "logtopic", logInfo, logger.ReadConfig{})
 
 	dec := protoio.NewUint32DelimitedReader(r, binary.BigEndian, 1e6)
 	count := 0
@@ -208,6 +209,35 @@ func TestReadingMultipleLogMessages(t *testing.T) {
 	assert.Equal(t, numberOfMessages, count)
 }
 
+func TestTailSettingOfOne(t *testing.T) {
+	setLogLevel("debug")
+	config := sarama.NewConfig()
+	consumer := mocks.NewConsumer(t, config)
+
+	expectedSource := "stdout"
+	expectedPartial := false
+	expectedTime := time.Now()
+	expectedContainerId := "3423423"
+
+	topics := make(map[string][]int32)
+	topics["logtopic"] = []int32{0}
+	consumer.SetTopicMetadata(topics)
+
+	// This is the real assert here, that the offset is '100'
+	partition := consumer.ExpectConsumePartition("logtopic", 0, 100)
+
+	numberOfMessages := 100
+	for i := 0; i < numberOfMessages; i++ {
+		inputBytes := createLogMessage(strconv.Itoa(i), expectedSource, expectedPartial, expectedTime, expectedContainerId)
+		expectMessage(inputBytes, partition)
+	}
+	partition.ExpectMessagesDrainedOnClose()
+
+	var logInfo logger.Info
+	logInfo.ContainerID = expectedContainerId
+
+	readLogsFromKafka(consumer, "logtopic", logInfo, logger.ReadConfig{Tail: 1})
+}
 
 func TestReadingSingleLineFromMultiplePartitions(t *testing.T) {
 	config := sarama.NewConfig()
@@ -225,14 +255,14 @@ func TestReadingSingleLineFromMultiplePartitions(t *testing.T) {
 	topics["logtopic"] = []int32{1,2,3,4,5}
 	consumer.SetTopicMetadata(topics)
 
-	for r := range topics["logtopic"] {
-		msg := createLogMessage(strconv.Itoa(r), expectedSource, expectedPartial, expectedTime, expectedContainerId)
-		partition := consumer.ExpectConsumePartition("logtopic", int32(r), sarama.OffsetOldest)
+	for _,r := range topics["logtopic"] {
+		msg := createLogMessage(strconv.Itoa(int(r)), expectedSource, expectedPartial, expectedTime, expectedContainerId)
+		partition := consumer.ExpectConsumePartition("logtopic", r, sarama.OffsetOldest)
 		expectMessage(msg, partition)
 
 	}
 
-	r, err := readLogsFromKafka(consumer, "logtopic", logInfo)
+	r, err := readLogsFromKafka(consumer, "logtopic", logInfo, logger.ReadConfig{})
 
 	expectedMessageCount := len(topics["logtopic"])
 
@@ -273,14 +303,14 @@ func TestReadingDoesNotOutputLogsForOtherContainer(t *testing.T) {
 	logInfo.ContainerID = differentContainerId
 
 	topics := make(map[string][]int32)
-	topics["logtopic"] = []int32{1}
+	topics["logtopic"] = []int32{0}
 	consumer.SetTopicMetadata(topics)
 	partition := consumer.ExpectConsumePartition("logtopic", 0, sarama.OffsetOldest)
 
 	expectMessage(inputBytes, partition)
 
 	partition.ExpectMessagesDrainedOnClose()
-	r, err := readLogsFromKafka(consumer, "logtopic", logInfo)
+	r, err := readLogsFromKafka(consumer, "logtopic", logInfo, logger.ReadConfig{})
 
 	// Wait a few seconds for the go threads to run
 	time.Sleep(3 * time.Second)

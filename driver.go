@@ -19,6 +19,7 @@ import (
 	"github.com/Shopify/sarama"
 	"strings"
 	"encoding/json"
+	"strconv"
 )
 
 // An mapped version of logger.Message where Line is a String, not a byte array
@@ -145,7 +146,7 @@ func (d *KafkaDriver) ReadLogs(info logger.Info, config logger.ReadConfig) (io.R
 		return nil, errors.WithMessage(err, "Unable to create consumer for logs")
 	}
 
-	return readLogsFromKafka(consumer, logTopic, info)
+	return readLogsFromKafka(consumer, logTopic, info, config)
 }
 
 
@@ -191,11 +192,13 @@ func writeLogsToKafka(lf *logPair, topic string, keyStrategy KeyStrategy) {
 	}
 }
 
-func readLogsFromKafka(consumer sarama.Consumer, logTopic string, info logger.Info) (io.ReadCloser, error) {
+func readLogsFromKafka(consumer sarama.Consumer, logTopic string, info logger.Info, config logger.ReadConfig) (io.ReadCloser, error) {
 	partitions, err := consumer.Partitions(logTopic)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Unable to list partitions for topic " + logTopic)
 	}
+
+	highWaterMarks := consumer.HighWaterMarks()
 
 	r, w := io.Pipe()
 
@@ -206,10 +209,20 @@ func readLogsFromKafka(consumer sarama.Consumer, logTopic string, info logger.In
 	var wg sync.WaitGroup
 
 	// We need to create a consumer for each partition as the Sarama library only reads from one partition at at a time
-	for partition := range partitions {
-		logrus.WithField("topic", logTopic).Debug("Has partition: " + string(partition))
+	for _,partition := range partitions {
+		logrus.WithField("topic", logTopic).Debug("Reading partition: " + strconv.Itoa(int(partition)))
+
+
+		//Default offset to oldest
+		offset := sarama.OffsetOldest
+		if config.Tail != 0 {
+			hwm := highWaterMarks[logTopic][partition]
+			offset = hwm - int64(config.Tail)
+			logrus.Debug("Reading ", logTopic, " partition ", strconv.Itoa(int(partition)), " with offset ", strconv.Itoa(int(offset)), " with high water mark of ", hwm)
+		}
+
 		wg.Add(1)
-		go consumeFromTopic(consumer, logTopic, int32(partition), info.ContainerID, logMessages, halt, &wg)
+		go consumeFromTopic(consumer, logTopic, int32(partition), offset, info.ContainerID, logMessages, halt, &wg)
 	}
 
 	// This method will read from the logMessages channel and write the messages to protobuf
@@ -234,7 +247,6 @@ func writeLogsToWriter(w *io.PipeWriter, entries chan logdriver.LogEntry, halt c
 	for {
 		select {
 		case logEntry := <-entries:
-			logrus.Debug("Writing log ", string(logEntry.Line))
 			err := enc.WriteMsg(&logEntry)
 			if err != nil {
 				logrus.Error("Unable to write out log message", err)
@@ -255,10 +267,12 @@ func writeLogsToWriter(w *io.PipeWriter, entries chan logdriver.LogEntry, halt c
 
 }
 
-func consumeFromTopic(consumer sarama.Consumer, topic string, partition int32, containerId string, logMessages chan logdriver.LogEntry, halt chan bool, wg *sync.WaitGroup) {
+func consumeFromTopic(consumer sarama.Consumer, topic string, partition int32, offset int64, containerId string, logMessages chan logdriver.LogEntry, halt chan bool, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	partitionConsumer, err := consumer.ConsumePartition(topic, partition, sarama.OffsetOldest)
+	logrus.WithField("topic", topic).WithField("partition", partition).WithField("offset", offset).WithField("containerId", containerId).Info("Beginning consuming of messages")
+
+	partitionConsumer, err := consumer.ConsumePartition(topic, partition, offset)
 	if err != nil {
 		// Log an error and close the channel, effectively stopping all the consumers
 		logrus.WithField("topic", topic).WithField("partition", partition).Error("Unable to consume from partition", err)
@@ -277,8 +291,6 @@ func consumeFromTopic(consumer sarama.Consumer, topic string, partition int32, c
 				return
 			}
 
-			logrus.Debug("Recieved log message")
-
 			var logMessage LogMessage
 			json.Unmarshal(msg.Value, &logMessage)
 			// If the container ids are the same, then output the logs
@@ -290,8 +302,7 @@ func consumeFromTopic(consumer sarama.Consumer, topic string, partition int32, c
 				logEntry.Partial= logMessage.Partial
 				logEntry.Source = logMessage.Source
 
-				//Add the logentry to the messages channel
-				logrus.Debug("Adding to channel: ", logMessage.Line)
+				// Add it to the channel for the next routine to write it out
 				logMessages <- logEntry
 			}
 
