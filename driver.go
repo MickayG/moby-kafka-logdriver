@@ -234,7 +234,7 @@ func readLogsFromKafka(consumer sarama.Consumer, logTopic string, info logger.In
 	// If all consumers stop, then inform the writeLogsToOutput routine to stop
 	go func() {
 		wg.Wait()
-		close(halt)
+		safelyClose(halt)
 	}()
 
 	return r, nil
@@ -252,9 +252,9 @@ func writeLogsToWriter(w *io.PipeWriter, entries chan logdriver.LogEntry, halt c
 		case logEntry := <-entries:
 			err := enc.WriteMsg(&logEntry)
 			if err != nil {
-				logrus.Error("Unable to write out log message", err)
+				logrus.Error("Unable to write out log message. This may be due to the user closing the stream ", err)
 				w.CloseWithError(err)
-				close(halt)
+				safelyClose(halt)
 				return
 			}
 		case _, ok :=<-halt:
@@ -344,4 +344,14 @@ func getOutputTopicForContainer(d *KafkaDriver, logCtx logger.Info) string {
 		}
 	}
 	return defaultTopic
+}
+
+func safelyClose(ch chan bool) {
+	defer func () {
+		if e := recover(); e!= nil {
+			logrus.Error("Closing channel errored")
+		}
+	}()
+
+	close(ch)
 }
