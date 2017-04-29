@@ -298,7 +298,10 @@ func consumeFromTopic(consumer sarama.Consumer, topic string, partition int32, o
 				//Now recreate the input protobuf logentry
 				var logEntry logdriver.LogEntry
 				logEntry.TimeNano = logMessage.Timestamp.UnixNano()
-				logEntry.Line = []byte(logMessage.Line)
+
+				// Note that we also add a newline to the end. It was striped off when it was intially
+				// written to Kafka.
+				logEntry.Line = []byte(logMessage.Line + "\n")
 				logEntry.Partial= logMessage.Partial
 				logEntry.Source = logMessage.Source
 

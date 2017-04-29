@@ -159,7 +159,8 @@ func TestReadingSingleLineFromOnePartition(t *testing.T) {
 
 	dec.Close()
 
-	assert.Equal(t, expectedLine, string(outputLogMessage.Line))
+	// New line is added on output
+	assert.Equal(t, expectedLine + "\n", string(outputLogMessage.Line))
 	assert.Equal(t, expectedSource, outputLogMessage.Source)
 	assert.Equal(t, expectedTime.UnixNano(), outputLogMessage.TimeNano)
 	assert.Equal(t, expectedPartial, outputLogMessage.Partial)
