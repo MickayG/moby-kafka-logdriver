@@ -20,6 +20,7 @@ import (
 	"strings"
 	"encoding/json"
 	"strconv"
+	"math"
 )
 
 // An mapped version of logger.Message where Line is a String, not a byte array
@@ -218,6 +219,8 @@ func readLogsFromKafka(consumer sarama.Consumer, logTopic string, info logger.In
 		if config.Tail != 0 {
 			hwm := highWaterMarks[logTopic][partition]
 			offset = hwm - int64(config.Tail)
+			// The offset cannot be less than 0, unless it's a magic number
+			offset = int64(math.Max(0, float64(offset)))
 			logrus.Debug("Reading ", logTopic, " partition ", strconv.Itoa(int(partition)), " with offset ", strconv.Itoa(int(offset)), " with high water mark of ", hwm)
 		}
 
