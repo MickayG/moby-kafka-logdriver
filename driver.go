@@ -65,6 +65,8 @@ type logPair struct {
 	producer sarama.AsyncProducer
 }
 
+const TOPIC_IS_CONTAINERNAME = "$CONTAINERNAME"
+const TOPIC_IS_CONTAINERID = "$CONTAINERID"
 
 // How many seconds to keep trying to consume from kafka until the connection stops
 const READ_LOGS_TIMEOUT  = 10 * time.Second
@@ -343,6 +345,13 @@ func getOutputTopicForContainer(d *KafkaDriver, logCtx logger.Info) string {
 			}
 		}
 	}
+
+	if defaultTopic == TOPIC_IS_CONTAINERNAME {
+		defaultTopic = logCtx.ContainerName
+	} else if defaultTopic == TOPIC_IS_CONTAINERID {
+		defaultTopic = logCtx.ContainerID
+	}
+
 	return defaultTopic
 }
 

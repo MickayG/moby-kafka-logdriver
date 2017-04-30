@@ -123,6 +123,34 @@ func TestTopicDefaultsToGlobalVariableWhenNotOverriden(t *testing.T) {
 	assert.Equal(t, defaultTopic, chosenTopic)
 }
 
+func TestTopicIsContainerNameWhenWanted(t *testing.T) {
+	overrideTopic := "$CONTAINERNAME"
+	defaultTopic := "default"
+
+	var driver KafkaDriver
+	driver.outputTopic = defaultTopic
+
+	envVars := []string{TOPIC_OVERRIDE_ENV + "=" + overrideTopic}
+	info := logger.Info{ContainerEnv: envVars, ContainerName: "containera"}
+
+	chosenTopic := getOutputTopicForContainer(&driver, info)
+	assert.Equal(t, "containera", chosenTopic)
+}
+
+
+func TestTopicIsContainerIdWhenWanted(t *testing.T) {
+	overrideTopic := "$CONTAINERID"
+	defaultTopic := "default"
+
+	var driver KafkaDriver
+	driver.outputTopic = defaultTopic
+
+	envVars := []string{TOPIC_OVERRIDE_ENV + "=" + overrideTopic}
+	info := logger.Info{ContainerEnv: envVars, ContainerName: "containera", ContainerID: "abcdef"}
+
+	chosenTopic := getOutputTopicForContainer(&driver, info)
+	assert.Equal(t, "abcdef", chosenTopic)
+}
 
 func TestReadingSingleLineFromOnePartition(t *testing.T) {
 	config := sarama.NewConfig()
