@@ -225,7 +225,7 @@ func readLogsFromKafka(consumer sarama.Consumer, logTopic string, info logger.In
 		}
 
 		wg.Add(1)
-		go consumeFromTopic(consumer, logTopic, int32(partition), offset, info.ContainerID, logMessages, halt, &wg)
+		go consumeFromTopic(consumer, logTopic, int32(partition), offset, info.ContainerID, config.Follow, logMessages, halt, &wg)
 	}
 
 	// This method will read from the logMessages channel and write the messages to protobuf
@@ -270,7 +270,7 @@ func writeLogsToWriter(w *io.PipeWriter, entries chan logdriver.LogEntry, halt c
 
 }
 
-func consumeFromTopic(consumer sarama.Consumer, topic string, partition int32, offset int64, containerId string, logMessages chan logdriver.LogEntry, halt chan bool, wg *sync.WaitGroup) {
+func consumeFromTopic(consumer sarama.Consumer, topic string, partition int32, offset int64, containerId string, noTimeout bool, logMessages chan logdriver.LogEntry, halt chan bool, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	logrus.WithField("topic", topic).WithField("partition", partition).WithField("offset", offset).WithField("containerId", containerId).Info("Beginning consuming of messages")
@@ -318,7 +318,7 @@ func consumeFromTopic(consumer sarama.Consumer, topic string, partition int32, o
 			return
 
 		default:
-			if time.Now().Sub(lastMessage) > READ_LOGS_TIMEOUT {
+			if !noTimeout && time.Now().Sub(lastMessage) > READ_LOGS_TIMEOUT {
 				logrus.Debug("Closing consumer, waited 10 seconds for additional logs")
 				return
 			}
