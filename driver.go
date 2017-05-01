@@ -143,6 +143,8 @@ func (d* KafkaDriver) GetCapability() logger.Capability {
 }
 
 func (d *KafkaDriver) ReadLogs(info logger.Info, config logger.ReadConfig) (io.ReadCloser, error) {
+	logrus.WithField("tail", config.Tail).WithField("follow", config.Follow).WithField("since", config.Since).WithField("container", info.ContainerName).Info("Recieved read request for container")
+
 	logTopic := getOutputTopicForContainer(d, info)
 	consumer,err := sarama.NewConsumerFromClient(*d.client)
 	if err != nil {
@@ -282,6 +284,7 @@ func consumeFromTopic(consumer sarama.Consumer, topic string, partition int32, o
 		// Log an error and close the channel, effectively stopping all the consumers
 		logrus.WithField("topic", topic).WithField("partition", partition).Error("Unable to consume from partition", err)
 		close(logMessages)
+		return
 	}
 
 	defer partitionConsumer.Close()
