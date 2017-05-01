@@ -217,10 +217,9 @@ func readLogsFromKafka(consumer sarama.Consumer, logTopic string, info logger.In
 	for _,partition := range partitions {
 		logrus.WithField("topic", logTopic).Debug("Reading partition: " + strconv.Itoa(int(partition)))
 
-
 		//Default offset to oldest
 		offset := sarama.OffsetOldest
-		if config.Tail != 0 {
+		if config.Tail != -1 && config.Tail != 0{
 			hwm := highWaterMarks[logTopic][partition]
 			offset = hwm - int64(config.Tail)
 			// The offset cannot be less than 0, unless it's a magic number
