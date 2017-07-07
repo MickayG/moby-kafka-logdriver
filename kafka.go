@@ -12,6 +12,7 @@ type KeyStrategy int
 const (
 	KEY_BY_CONTAINER_ID KeyStrategy = iota
 	KEY_BY_TIMESTAMP    KeyStrategy = iota
+	TAG                 string = "common"
 )
 
 type PartitionStrategy int

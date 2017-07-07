@@ -33,6 +33,7 @@ type LogMessage struct {
 	ContainerId        string
 	ContainerImageName string
 	ContainerImageId   string
+	Tag                string
 
 	// Err is an error associated with a message. Completeness of a message
 	// with Err is not expected, tho it may be partially complete (fields may
@@ -57,6 +58,7 @@ type KafkaDriver struct {
 	outputTopic string
 	keyStrategy KeyStrategy
 	partitionStrategy PartitionStrategy
+	tag         string
 }
 
 type logPair struct {
@@ -71,13 +73,14 @@ const TOPIC_IS_CONTAINERID = "$CONTAINERID"
 // How many seconds to keep trying to consume from kafka until the connection stops
 const READ_LOGS_TIMEOUT  = 10 * time.Second
 
-func newDriver(client *sarama.Client, outputTopic string, keyStrategy KeyStrategy) *KafkaDriver {
+func newDriver(client *sarama.Client, outputTopic string, keyStrategy KeyStrategy, tag string) *KafkaDriver {
 	return &KafkaDriver{
 		logs: make(map[string]*logPair),
 		idx:  make(map[string]*logPair),
 		client: client,
 		outputTopic: outputTopic,
 		keyStrategy: keyStrategy,
+		tag: tag,
 	}
 }
 
@@ -119,7 +122,7 @@ func (d *KafkaDriver) StartLogging(file string, logCtx logger.Info) error {
 
 	d.mu.Unlock()
 
-	go writeLogsToKafka(lf, outputTopic, d.keyStrategy)
+	go writeLogsToKafka(lf, outputTopic, d.keyStrategy, d.tag)
 
 	return nil
 }
@@ -155,7 +158,7 @@ func (d *KafkaDriver) ReadLogs(info logger.Info, config logger.ReadConfig) (io.R
 }
 
 
-func writeLogsToKafka(lf *logPair, topic string, keyStrategy KeyStrategy) {
+func writeLogsToKafka(lf *logPair, topic string, keyStrategy KeyStrategy, tag string) {
 	dec := protoio.NewUint32DelimitedReader(lf.stream, binary.BigEndian, 1e6)
 	defer dec.Close()
 	var buf logdriver.LogEntry
@@ -187,6 +190,7 @@ func writeLogsToKafka(lf *logPair, topic string, keyStrategy KeyStrategy) {
 		msg.ContainerName = lf.info.ContainerName
 		msg.ContainerImageName = lf.info.ContainerImageName
 		msg.ContainerImageId = lf.info.ContainerImageID
+		msg.Tag = tag
 
 		err := WriteMessage(topic, msg, lf.info.ContainerID, keyStrategy, lf.producer)
 		if err != nil {
