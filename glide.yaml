@@ -1,0 +1,27 @@
+package: github.com/xtimon/moby-kafka-logdriver
+import:
+- package: github.com/Shopify/sarama
+  version: ~1.12.0
+- package: github.com/Sirupsen/logrus
+  version: ~1.0.0
+- package: github.com/docker/docker
+  version: ~17.5.0-ce
+  subpackages:
+  - api/types/plugins/logdriver
+  - daemon/logger
+  - pkg/ioutils
+- package: github.com/docker/go-plugins-helpers
+  subpackages:
+  - sdk
+- package: github.com/gogo/protobuf
+  version: ~0.4.0
+  subpackages:
+  - io
+- package: github.com/pkg/errors
+  version: ~0.8.0
+- package: github.com/tonistiigi/fifo
+testImport:
+- package: github.com/stretchr/testify
+  version: ~1.1.4
+  subpackages:
+  - assert
