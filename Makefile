@@ -12,11 +12,11 @@ test:
 	@go test
 
 package:
-	@docker build -t mickyg/kafka-logdriver:latest . -f Dockerfile.build
-	@docker create --name kafka-logdriver-release mickyg/kafka-logdriver:latest
+	@docker build -t tempo . -f Dockerfile.build
+	@docker create --name kafka-logdriver-release tempo
 	@docker cp kafka-logdriver-release:kafka-logdriver.tar.gz .
 	@docker rm -v kafka-logdriver-release
-	@docker image rm mickyg/kafka-logdriver:latest
+	@docker image rm tempo
 
 install: clean package
 	@tar -xvf kafka-logdriver.tar.gz
