@@ -8,7 +8,6 @@ clean:
 	-rm -rf kafka-logdriver
 
 test:
-	@glide install
 	@go test
 
 package:
