@@ -86,7 +86,7 @@ func getKeyStrategyEnv() KeyStrategy {
 }
 
 func getKeyTagEnv() string {
-	tag := os.Getenv("TAG")
+	tag := os.Getenv("LOG_TAG")
 	if tag == "" {
 		tag = "common"
 	}
