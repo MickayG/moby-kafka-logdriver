@@ -24,6 +24,9 @@ const (
 // Name of the environment variable the user can use to override the topic name to allow per-container topics
 const TOPIC_OVERRIDE_ENV string = "LOG_TOPIC"
 
+// Environment variable the user can use to override the log tag to allow per-container tags
+const LOG_TAG_ENV string = "LOG_TAG"
+
 
 func getKeyStrategyFromString(keyStrategyString string) (KeyStrategy, error) {
 	// Trim and whitespace and lowercase the string so it matches

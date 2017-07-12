@@ -115,6 +115,7 @@ func (d *KafkaDriver) StartLogging(file string, logCtx logger.Info) error {
 	// The user can specify a custom topic with the below argument. If its present, use that as the
 	//   topic instead of the global configuration option
 	outputTopic := getOutputTopicForContainer(d, logCtx)
+	tag := getTagForContainer(d, logCtx)
 
 	lf := &logPair{f, logCtx, producer}
 	d.logs[file] = lf
@@ -122,7 +123,7 @@ func (d *KafkaDriver) StartLogging(file string, logCtx logger.Info) error {
 
 	d.mu.Unlock()
 
-	go writeLogsToKafka(lf, outputTopic, d.keyStrategy, d.tag)
+	go writeLogsToKafka(lf, outputTopic, d.keyStrategy, tag)
 
 	return nil
 }
@@ -359,6 +360,25 @@ func getOutputTopicForContainer(d *KafkaDriver, logCtx logger.Info) string {
 	}
 
 	return defaultTopic
+}
+
+func getTagForContainer(d *KafkaDriver, logCtx logger.Info) string {
+	defaultTag := d.tag
+	for _, env := range logCtx.ContainerEnv {
+		// Only split on the first '='. An equals might be present in the topic name, we don't want to split on that
+		envArg := strings.SplitN(env, "=", 2)
+		// Check that there was a key=value and not just a random key.
+		if len(envArg) == 2 {
+			envName := envArg[0]
+			envValue := envArg[1]
+			if strings.ToUpper(envName) == LOG_TAG_ENV {
+				logrus.WithField("tag", envValue).Info("log tag overriden for container")
+				defaultTag = envValue
+			}
+		}
+	}
+
+	return defaultTag
 }
 
 func safelyClose(ch chan bool) {
