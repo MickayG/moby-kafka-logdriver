@@ -31,7 +31,7 @@ func TestConsumesSingleLogMessagesFromDocker(t *testing.T) {
 	lf := createLogPair(producer, stream)
 
 	producer.ExpectInputAndSucceed()
-	writeLogsToKafka(&lf, "topic", KEY_BY_TIMESTAMP)
+	writeLogsToKafka(&lf, "topic", KEY_BY_TIMESTAMP, TAG)
 
 	recvMsg := <-producer.Successes()
 	assertLineMatch(t, "alpha", recvMsg)
@@ -55,7 +55,7 @@ func TestConsumesMultipleLogMessagesFromDocker(t *testing.T) {
 	producer.ExpectInputAndSucceed()
 	producer.ExpectInputAndSucceed()
 	producer.ExpectInputAndSucceed()
-	writeLogsToKafka(&lf, "topic", KEY_BY_TIMESTAMP)
+	writeLogsToKafka(&lf, "topic", KEY_BY_TIMESTAMP, TAG)
 
 	assertLineMatch(t, "alpha", <-producer.Successes())
 	assertLineMatch(t, "beta", <-producer.Successes())
@@ -85,7 +85,7 @@ func TestJsonIncludesContainerInformation(t *testing.T) {
 
 
 	producer.ExpectInputAndSucceed()
-	writeLogsToKafka(&lf, "topic", KEY_BY_TIMESTAMP)
+	writeLogsToKafka(&lf, "topic", KEY_BY_TIMESTAMP, TAG)
 
 	recvMsg := <-producer.Successes()
 	outMsg := unmarshallMessage(recvMsg, t)

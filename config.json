@@ -35,6 +35,14 @@
         ]
       },
       {
+        "name": "LOG_TAG",
+        "description": "Tag for docker log",
+        "value": "common",
+        "settable": [
+          "value"
+        ]
+      },
+      {
         "name": "KEY_STRATEGY",
         "description": "Method in which Kafka methods should be keyed",
         "value": "key_by_timestamp",

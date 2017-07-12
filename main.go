@@ -23,6 +23,7 @@ func main() {
 	outputTopic := getKafkaTopicEnv()
 	keyStrat := getKeyStrategyEnv()
 	partitionStrat := getPartitionStrategyEnv()
+	tag := getKeyTagEnv()
 
 	client, err := CreateClient(addrs, partitionStrat)
 	if err != nil {
@@ -30,7 +31,7 @@ func main() {
 	}
 
 	h := sdk.NewHandler(`{"Implements": ["LoggingDriver"]}`)
-	setupDockerHandlers(&h, newDriver(&client, outputTopic, keyStrat))
+	setupDockerHandlers(&h, newDriver(&client, outputTopic, keyStrat, tag))
 	if err := h.ServeUnix("kafka-logdriver", 0); err != nil {
 		panic(err)
 	}
@@ -82,6 +83,14 @@ func getKeyStrategyEnv() KeyStrategy {
 		os.Exit(1)
 	}
 	return keyStrat
+}
+
+func getKeyTagEnv() string {
+	tag := os.Getenv("LOG_TAG")
+	if tag == "" {
+		tag = "common"
+	}
+	return tag
 }
 
 func setLogLevel(levelVal string) {

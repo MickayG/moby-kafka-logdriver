@@ -77,6 +77,7 @@ For example, to change the topic to "logs"
 | -------|------------| --------|
 |KAFKA_BROKER_ADDR|**(Required)** Comma delimited list of Kafka brokers. | |
 |LOG_TOPIC| Topic to which logs will be written to, can be set to `$CONTAINERNAME` to write to topics named after each container, or `$CONTAINERID` to write to topics named after each containers id. | dockerlogs |
+|LOG_TAG| Docker logs tag| common |
 |KEY_STRATEGY| Method in which Kafka methods should be keyed. Options are: <br>*key_by_timestamp* - Key each message by the timestamp of the log message <br>*key_by_container_id* - Key each message with the container id. | key_by_timestamp
 |PARTITION_STRATEGY| Kafka partitioner type. Options are:<br>*round_robin* - Write to each partition one after another, i.e equally distributed<br>*key_hash* - Partition based on the hash of the message key|round_robin|
 |LOG_LEVEL| Log level of the internal logger. Options: debug, info, warn, error|info|
@@ -112,6 +113,7 @@ Each log message will be written to a single Kafka message. The message within K
 	"ContainerId": "be2af19df661fb08561a8a99c734f637f9dc1397c43d88379479fceb5fc0666d",
 	"ContainerImageName": "hello-world",
 	"ContainerImageId": "sha256:48b5124b2768d2b917edcb640435044a97967015485e812545546cbed5cf0233",
+	"Tag": "common",
 	"Err": null
 }
 ```
@@ -128,6 +130,7 @@ Each log message will be written to a single Kafka message. The message within K
  | ContainerId | Id of the container that generated the log message |
  | ContainerImageName | Name of the container's image |
  | ContainerImageId | ID of the container's image |
+ | Tag | The log tag |
  | Err | Usually null, otherwise will be a string containing and error from the logdriver |
 
 
