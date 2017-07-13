@@ -95,6 +95,19 @@ func TestJsonIncludesContainerInformation(t *testing.T) {
 	assert.Equal(t, expectedContainerImageName, outMsg.ContainerImageName)
 }
 
+func TestTagCanBeOverridenWithEnvironmentVariable(t *testing.T) {
+	overrideTag := "overide"
+	defaultTag := "default"
+
+	var driver KafkaDriver
+	driver.tag = defaultTag
+
+	envVars := []string{ENV_LOG_TAG + "=" + overrideTag}
+	info := logger.Info{ContainerEnv: envVars}
+
+	tag := getTagForContainer(&driver, info)
+	assert.Equal(t, overrideTag, tag)
+}
 
 func TestTopicCanBeOverridenWithEnvironmentVariable(t *testing.T) {
 	overrideTopic := "override"
