@@ -95,6 +95,19 @@ func TestJsonIncludesContainerInformation(t *testing.T) {
 	assert.Equal(t, expectedContainerImageName, outMsg.ContainerImageName)
 }
 
+func TestTagCanBeOverridenWithEnvironmentVariable(t *testing.T) {
+	overrideTag := "overide"
+	defaultTag := "default"
+
+	var driver KafkaDriver
+	driver.tag = defaultTag
+
+	envVars := []string{ENV_LOG_TAG + "=" + overrideTag}
+	info := logger.Info{ContainerEnv: envVars}
+
+	tag := getTagForContainer(&driver, info)
+	assert.Equal(t, overrideTag, tag)
+}
 
 func TestTopicCanBeOverridenWithEnvironmentVariable(t *testing.T) {
 	overrideTopic := "override"
@@ -103,7 +116,7 @@ func TestTopicCanBeOverridenWithEnvironmentVariable(t *testing.T) {
 	var driver KafkaDriver
 	driver.outputTopic = defaultTopic
 
-	envVars := []string{TOPIC_OVERRIDE_ENV + "=" + overrideTopic}
+	envVars := []string{ENV_TOPIC + "=" + overrideTopic}
 	info := logger.Info{ContainerEnv: envVars}
 
 	chosenTopic := getOutputTopicForContainer(&driver, info)
@@ -130,7 +143,7 @@ func TestTopicIsContainerNameWhenWanted(t *testing.T) {
 	var driver KafkaDriver
 	driver.outputTopic = defaultTopic
 
-	envVars := []string{TOPIC_OVERRIDE_ENV + "=" + overrideTopic}
+	envVars := []string{ENV_TOPIC + "=" + overrideTopic}
 	info := logger.Info{ContainerEnv: envVars, ContainerName: "containera"}
 
 	chosenTopic := getOutputTopicForContainer(&driver, info)
@@ -145,7 +158,7 @@ func TestTopicIsContainerIdWhenWanted(t *testing.T) {
 	var driver KafkaDriver
 	driver.outputTopic = defaultTopic
 
-	envVars := []string{TOPIC_OVERRIDE_ENV + "=" + overrideTopic}
+	envVars := []string{ENV_TOPIC + "=" + overrideTopic}
 	info := logger.Info{ContainerEnv: envVars, ContainerName: "containera", ContainerID: "abcdef"}
 
 	chosenTopic := getOutputTopicForContainer(&driver, info)

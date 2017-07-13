@@ -5,7 +5,6 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/go-plugins-helpers/sdk"
-	"strings"
 )
 
 var logLevels = map[string]logrus.Level{
@@ -16,7 +15,7 @@ var logLevels = map[string]logrus.Level{
 }
 
 func main() {
-	levelVal := os.Getenv("LOG_LEVEL")
+	levelVal := os.Getenv(ENV_LOG_LEVEL)
 	setLogLevel(levelVal)
 
 	addrs := getKafkaBrokersEnv()
@@ -39,63 +38,10 @@ func main() {
 	client.Close()
 }
 
-func getPartitionStrategyEnv() PartitionStrategy {
-	partitionStrategyStr := os.Getenv("PARTITION_STRATEGY")
-	if partitionStrategyStr == "" {
-		partitionStrategyStr = "round_robin"
-	}
-	partitionStrat, err := getPartitionStrategyFromString(partitionStrategyStr)
-	if err != nil {
-		logrus.Error("unknown partition strategy", err)
-		os.Exit(1)
-	}
-	return partitionStrat
-}
-
-func getKafkaBrokersEnv() []string {
-	addrList := os.Getenv("KAFKA_BROKER_ADDR")
-	if addrList == "" {
-		logrus.Error("Missing environment var KAFKA_BROKER_ADDR")
-		os.Exit(1)
-	}
-	addrs := strings.Split(addrList, ",")
-	return addrs
-}
-
-func getKafkaTopicEnv() string {
-	outputTopic := os.Getenv("LOG_TOPIC")
-	if outputTopic == "" {
-		outputTopic = "dockerlogs"
-	}
-	return outputTopic
-}
-
-func getKeyStrategyEnv() KeyStrategy {
-	keyStrategyVar := os.Getenv("KEY_STRATEGY")
-	if keyStrategyVar == "" {
-		keyStrategyVar = "key_by_timestamp"
-		logrus.Debug("Defaulting KEY_STRATEGY to key_by_timestamp")
-	}
-
-	keyStrat, err := getKeyStrategyFromString(keyStrategyVar)
-	if err != nil {
-		logrus.Error("unknown key strategy", err)
-		os.Exit(1)
-	}
-	return keyStrat
-}
-
-func getKeyTagEnv() string {
-	tag := os.Getenv("LOG_TAG")
-	if tag == "" {
-		tag = "common"
-	}
-	return tag
-}
 
 func setLogLevel(levelVal string) {
 	if levelVal == "" {
-		levelVal = "info"
+		levelVal = DEFAULT_LOG_LEVEL
 	}
 	if level, exists := logLevels[levelVal]; exists {
 		logrus.SetLevel(level)

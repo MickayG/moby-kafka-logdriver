@@ -98,7 +98,7 @@ The available container-level configurations are in the table below.
 | Option | Description |
 | -------| ----------- |
 | LOG_TOPIC | Topic to which logs will be written to, can be set to `$CONTAINERNAME` to write to topics named after each container, or `$CONTAINERID` to write to topics named after each containers id. If not set, will default to global LOG_TOPIC variable |
-
+| LOG_TAG | Tag to be added to the log messages |
 
 
 ## Output Format

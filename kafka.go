@@ -4,52 +4,9 @@ import (
 	"github.com/Shopify/sarama"
 	"encoding/json"
 	"github.com/Sirupsen/logrus"
-	"strings"
+	_ "strings"
 	"errors"
 )
-
-type KeyStrategy int
-const (
-	KEY_BY_CONTAINER_ID KeyStrategy = iota
-	KEY_BY_TIMESTAMP    KeyStrategy = iota
-	TAG                 string = "common"
-)
-
-type PartitionStrategy int
-const (
-	PARTITION_ROUND_ROBIN PartitionStrategy = iota
-	PARTITION_KEY_HASH PartitionStrategy = iota
-)
-
-// Name of the environment variable the user can use to override the topic name to allow per-container topics
-const TOPIC_OVERRIDE_ENV string = "LOG_TOPIC"
-
-
-func getKeyStrategyFromString(keyStrategyString string) (KeyStrategy, error) {
-	// Trim and whitespace and lowercase the string so it matches
-	// no matter what someone has put in
-	switch strings.TrimSpace(strings.ToLower(keyStrategyString)) {
-	case "key_by_container_id":
-		return KEY_BY_CONTAINER_ID, nil
-	case "key_by_timestamp":
-		return KEY_BY_TIMESTAMP, nil
-	default:
-		return 0, errors.New("Unknown keying strategy " + keyStrategyString +". Expected: key_by_container_id,key_by_timestamp" )
-	}
-}
-
-func getPartitionStrategyFromString(partitionStrategy string) (PartitionStrategy, error) {
-	// Trim and whitespace and lowercase the string so it matches
-	// no matter what someone has put in
-	switch strings.TrimSpace(strings.ToLower(partitionStrategy)) {
-	case "round_robin":
-		return PARTITION_ROUND_ROBIN, nil
-	case "key_hash":
-		return PARTITION_KEY_HASH, nil
-	default:
-		return 0, errors.New("Unknown partition strategy" + partitionStrategy +". Expected: round_robin,key_hash")
-	}
-}
 
 // Create a Sarama Kafka client with the broker list
 // Will pass back the client and any errors

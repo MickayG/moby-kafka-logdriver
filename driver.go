@@ -17,7 +17,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tonistiigi/fifo"
 	"github.com/Shopify/sarama"
-	"strings"
 	"encoding/json"
 	"strconv"
 	"math"
@@ -67,8 +66,6 @@ type logPair struct {
 	producer sarama.AsyncProducer
 }
 
-const TOPIC_IS_CONTAINERNAME = "$CONTAINERNAME"
-const TOPIC_IS_CONTAINERID = "$CONTAINERID"
 
 // How many seconds to keep trying to consume from kafka until the connection stops
 const READ_LOGS_TIMEOUT  = 10 * time.Second
@@ -115,6 +112,7 @@ func (d *KafkaDriver) StartLogging(file string, logCtx logger.Info) error {
 	// The user can specify a custom topic with the below argument. If its present, use that as the
 	//   topic instead of the global configuration option
 	outputTopic := getOutputTopicForContainer(d, logCtx)
+	tag := getTagForContainer(d, logCtx)
 
 	lf := &logPair{f, logCtx, producer}
 	d.logs[file] = lf
@@ -122,7 +120,7 @@ func (d *KafkaDriver) StartLogging(file string, logCtx logger.Info) error {
 
 	d.mu.Unlock()
 
-	go writeLogsToKafka(lf, outputTopic, d.keyStrategy, d.tag)
+	go writeLogsToKafka(lf, outputTopic, d.keyStrategy, tag)
 
 	return nil
 }
@@ -335,31 +333,23 @@ func consumeFromTopic(consumer sarama.Consumer, topic string, partition int32, o
 	}
 }
 
-
 func getOutputTopicForContainer(d *KafkaDriver, logCtx logger.Info) string {
-	defaultTopic := d.outputTopic
-	for _, env := range logCtx.ContainerEnv {
-		// Only split on the first '='. An equals might be present in the topic name, we don't want to split on that
-		envArg := strings.SplitN(env, "=", 2)
-		// Check that there was a key=value and not just a random key.
-		if len(envArg) == 2 {
-			envName := envArg[0]
-			envValue := envArg[1]
-			if strings.ToUpper(envName) == TOPIC_OVERRIDE_ENV {
-				logrus.WithField("topic", envValue).Info("topic overriden for container")
-				defaultTopic = envValue
-			}
-		}
+	topicName := getEnvVarOrDefault(logCtx, ENV_TOPIC, d.outputTopic)
+
+	if topicName == TOPIC__CONTAINERNAME {
+		topicName = logCtx.ContainerName
+	} else if topicName == TOPIC__CONTAINERID {
+		topicName = logCtx.ContainerID
 	}
 
-	if defaultTopic == TOPIC_IS_CONTAINERNAME {
-		defaultTopic = logCtx.ContainerName
-	} else if defaultTopic == TOPIC_IS_CONTAINERID {
-		defaultTopic = logCtx.ContainerID
-	}
-
-	return defaultTopic
+	return topicName
 }
+
+func getTagForContainer(d *KafkaDriver, logCtx logger.Info) string {
+	return getEnvVarOrDefault(logCtx, ENV_LOG_TAG, d.tag)
+}
+
+
 
 func safelyClose(ch chan bool) {
 	defer func () {
