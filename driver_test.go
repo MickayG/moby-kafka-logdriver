@@ -78,7 +78,7 @@ func TestAggregatesPartialLogMessagesFromDocker(t *testing.T) {
 	producer.ExpectInputAndSucceed()
 	writeLogsToKafka(&lf, "topic", KEY_BY_TIMESTAMP, TAG)
 
-	assertLineMatch(t, "alphabetacharlie", <-producer.Successes())
+	assertLineMatch(t, "alphabetacharlie\n", <-producer.Successes())
 }
 
 func TestJsonIncludesContainerInformation(t *testing.T) {
